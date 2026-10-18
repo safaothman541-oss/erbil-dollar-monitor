@@ -24,6 +24,8 @@ async function generateDailyReport() {
   let totalCostUsd = 0;
   let totalCostIqd = 0;
 
+const fifoService = require('../services/fifoService');
+
   for (const invSummary of todayInvoices) {
     try {
       const inv = await zohoService.getInvoiceDetails(invSummary.invoice_id);
@@ -32,8 +34,13 @@ async function generateDailyReport() {
       if (inv.line_items) {
         for (const item of inv.line_items) {
           const qty = item.quantity || 1;
-          const pRate = item.purchase_rate || 0;
-          const itemCostUsd = pRate * qty;
+          let itemCostUsd = 0;
+          try {
+            const fifoRes = await fifoService.getItemFifoCost(item.item_id, qty, inv.date);
+            itemCostUsd = fifoRes.totalCostUsd;
+          } catch (e) {
+            itemCostUsd = (item.purchase_rate || 0) * qty;
+          }
           totalCostUsd += itemCostUsd;
           totalCostIqd += itemCostUsd * 1560; // September baseline rate
         }
