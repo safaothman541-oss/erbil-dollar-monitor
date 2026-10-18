@@ -135,6 +135,71 @@ class TelegramService {
     return json.result;
   }
 
+  deleteMessage(chatId, messageId) {
+    return this.apiCall('deleteMessage', {
+      chat_id: chatId,
+      message_id: messageId
+    });
+  }
+
+  async sendPhoto(photoPathOrUrl, options = {}) {
+    if (typeof photoPathOrUrl === 'string' && (photoPathOrUrl.startsWith('http://') || photoPathOrUrl.startsWith('https://'))) {
+      const params = {
+        chat_id: options.chatId || this.defaultChatId,
+        photo: photoPathOrUrl,
+        caption: options.caption || '',
+        parse_mode: options.parseMode || 'HTML'
+      };
+      if (options.threadId) params.message_thread_id = options.threadId;
+      if (options.replyMarkup) params.reply_markup = options.replyMarkup;
+      return this.apiCall('sendPhoto', params);
+    }
+
+    const fs = require('fs');
+    const path = require('path');
+    const formData = new FormData();
+    formData.append('chat_id', options.chatId || this.defaultChatId);
+    if (options.threadId) {
+      formData.append('message_thread_id', options.threadId);
+    }
+    if (options.caption) {
+      formData.append('caption', options.caption);
+      formData.append('parse_mode', options.parseMode || 'HTML');
+    }
+    if (options.replyMarkup) {
+      formData.append('reply_markup', JSON.stringify(options.replyMarkup));
+    }
+    const fileBytes = fs.readFileSync(photoPathOrUrl);
+    const fileName = path.basename(photoPathOrUrl);
+    formData.append('photo', new Blob([fileBytes]), fileName);
+
+    const res = await fetch(`https://api.telegram.org/bot${this.token}/sendPhoto`, {
+      method: 'POST',
+      body: formData
+    });
+    const json = await res.json();
+    if (!json.ok) {
+      if (options.caption && json.description && json.description.includes("can't parse entities")) {
+        console.warn('[Telegram] sendPhoto HTML parse error, retrying with plain text caption:', json.description);
+        const retryData = new FormData();
+        retryData.append('chat_id', options.chatId || this.defaultChatId);
+        if (options.threadId) retryData.append('message_thread_id', options.threadId);
+        retryData.append('caption', options.caption.replace(/<[^>]*>/g, ''));
+        if (options.replyMarkup) retryData.append('reply_markup', JSON.stringify(options.replyMarkup));
+        retryData.append('photo', new Blob([fileBytes]), fileName);
+        const retryRes = await fetch(`https://api.telegram.org/bot${this.token}/sendPhoto`, {
+          method: 'POST',
+          body: retryData
+        });
+        const retryJson = await retryRes.json();
+        if (!retryJson.ok) throw new Error(`Telegram sendPhoto error: ${retryJson.description}`);
+        return retryJson.result;
+      }
+      throw new Error(`Telegram sendPhoto error: ${json.description}`);
+    }
+    return json.result;
+  }
+
   pinChatMessage(chatId, messageId) {
     return this.apiCall('pinChatMessage', {
       chat_id: chatId,

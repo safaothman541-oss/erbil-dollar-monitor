@@ -200,7 +200,7 @@ async function generatePriceListPdf(outputPath) {
         <div class="brand-title">VERTEX COMPANY</div>
         <div class="brand-sub">General Trading, POS Hardware & Thermal Paper Solutions</div>
         <div style="font-size: 10px; color: #1E40AF; font-weight: 800; margin-top: 3px;">
-          Website: <a href="https://vertex1.tech" style="color: #1E40AF; text-decoration: none;">vertex1.tech</a> &nbsp;|&nbsp; Tel / WhatsApp: <span dir="ltr">+964 750 758 6992 (0750 758 6992)</span>
+          Website: <a href="https://vertex1.tech" style="color: #1E40AF; text-decoration: none;">vertex1.tech</a> &nbsp;|&nbsp; Tel / WhatsApp: <span dir="ltr">+964 750 758 6992 &bull; +964 750 529 9118</span>
         </div>
         <div style="font-size: 9px; color: #64748B; margin-top: 1px;">
           Erbil, Kurdistan Region, Iraq &nbsp;|&nbsp; Email: vertexiqzone@gmail.com &nbsp;|&nbsp; Telegram: @vertexiqzone
@@ -284,11 +284,11 @@ async function generatePriceListPdf(outputPath) {
       <div style="font-size: 9px; color: #334155;">
         • <b>10 Cartons Panda 80*80 (500 Rolls Total)</b><br>
         • Calculated at discounted $0.85 / roll<br>
-        • <b>Free Delivery</b> within Erbil city limits<br>
+        • Fast dispatch & delivery to all cities<br>
         • Guaranteed Japanese dark thermal coating
       </div>
       <div class="bundle-price">$425.00 <span style="font-size: 10px; font-weight: 600; color: #475569;">(${Math.round(425 * dollarRate).toLocaleString()} IQD)</span></div>
-      <div style="font-size: 8px; color: #64748B;">Regular Price: $430.00 + Free Delivery</div>
+      <div style="font-size: 8px; color: #64748B;">Regular Price: $430.00 (Volume Discount Applied)</div>
     </div>
   </div>
 
@@ -299,10 +299,10 @@ async function generatePriceListPdf(outputPath) {
         WHOLESALE INQUIRIES & BULK CARTON ORDERS:
       </div>
       <div style="font-size: 9px; color: #4B5563;">
-        For commercial supply and volume carton pricing: <span dir="ltr"><b>+964 750 758 6992</b></span> &bull; <b>vertex1.tech</b>
+        For commercial supply and volume carton pricing: <span dir="ltr"><b>+964 750 758 6992</b> &bull; <b>+964 750 529 9118</b></span> &bull; <b>vertex1.tech</b>
       </div>
       <div style="font-size: 9px; color: #1E293B; font-weight: 600; margin-top: 3px;">
-        Direct sales desk & WhatsApp: <span dir="ltr"><b>+964 750 758 6992</b></span> &bull; Official website: <b>vertex1.tech</b>
+        Direct sales desk & WhatsApp: <span dir="ltr"><b>+964 750 758 6992</b> / <b>+964 750 529 9118</b></span> &bull; Official website: <b>vertex1.tech</b>
       </div>
     </div>
 
