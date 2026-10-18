@@ -205,6 +205,37 @@ class ZohoService {
 
     return { ratePerDollar, zohoRate };
   }
+
+  async getCustomer(customerId) {
+    if (!customerId) return null;
+    try {
+      const res = await this.request('GET', `/contacts/${customerId}`);
+      return res.contact || null;
+    } catch (e) {
+      console.error(`[ZohoService] Error fetching customer ${customerId}:`, e.message);
+      return null;
+    }
+  }
+
+  async getCustomerPhone(customerId) {
+    const contact = await this.getCustomer(customerId);
+    if (!contact) return null;
+
+    let rawPhone = contact.mobile || contact.phone;
+    if (!rawPhone && contact.contact_persons && contact.contact_persons.length > 0) {
+      rawPhone = contact.contact_persons[0].mobile || contact.contact_persons[0].phone;
+    }
+
+    if (!rawPhone) return null;
+
+    // Clean phone number: remove spaces, dashes, parentheses
+    let clean = rawPhone.replace(/[^0-9+]/g, '');
+    if (clean.startsWith('00')) clean = '+' + clean.slice(2);
+    if (clean.startsWith('07')) clean = '+964' + clean.slice(1);
+    if (clean.startsWith('7') && clean.length === 10) clean = '+964' + clean;
+
+    return clean;
+  }
 }
 
 module.exports = new ZohoService();

@@ -10,6 +10,8 @@ const customerStorefront = require('./modules/customerStorefront');
 const pdfGenerator = require('./services/pdfPriceListGenerator');
 const stickerGenerator = require('./services/qrStickerGenerator');
 const channelPublisher = require('./modules/channelPublisher');
+const whatsappServer = require('./services/whatsappServer');
+const whatsappService = require('./services/whatsappService');
 
 let lastUpdateId = 0;
 let lastEveningReportDate = null;
@@ -337,6 +339,36 @@ async function handleMessage(msg) {
     return;
   }
 
+  // WhatsApp Cloud API commands
+  if (text.startsWith('/whatsapp') || text.startsWith('/wa')) {
+    if (text.startsWith('/wa_test')) {
+      const parts = text.split(/\s+/);
+      const targetPhone = parts[1] || '9647507586992';
+      try {
+        await whatsappService.sendKurdishInvoice(targetPhone, {
+          invoiceNumber: 'INV-TEST-01',
+          customerName: 'تێستی واتسئاپ',
+          totalAmount: '$100 (~168,500 د.ع)',
+          date: new Date().toISOString().split('T')[0]
+        });
+        await telegramService.sendMessage(`✅ وەسڵی تێستی کوردی بە سەرکەوتوویی بۆ <code>${targetPhone}</code> نێردرا!`, { chatId, threadId });
+      } catch (err) {
+        await telegramService.sendMessage(`❌ کێشە لە ناردنی واتسئاپ: ${err.message}`, { chatId, threadId });
+      }
+      return;
+    }
+
+    let waMsg = `📱 <b>سیستەمی فەرمیی WhatsApp Cloud API - Vertex</b>\n\n`;
+    waMsg += `• <b>دۆخی سێرڤەر:</b> چالاکە (Active)\n`;
+    waMsg += `• <b>WABA ID:</b> <code>${config.WHATSAPP.BUSINESS_ACCOUNT_ID}</code>\n`;
+    waMsg += `• <b>Phone ID:</b> <code>${config.WHATSAPP.PHONE_NUMBER_ID}</code>\n`;
+    waMsg += `• <b>وەڵامدانەوەی خودکار:</b> لەسەر پۆرت ${config.WHATSAPP.PORT}\n`;
+    waMsg += `• <b>تێمپلەیتی پسوولەی پەسەندکراو:</b> <code>vertex_invoice_kurdish_v1</code>\n\n`;
+    waMsg += `بۆ ناردنی وەسڵی تێست بۆ واتسئاپ:\n<code>/wa_test 0750xxxxxxx</code>`;
+    await telegramService.sendMessage(waMsg, { chatId, threadId });
+    return;
+  }
+
   // --- Supergroup Topic Handlers ---
   // If command /start or /help in group
   if (text.startsWith('/start') || text.startsWith('/help')) {
@@ -484,6 +516,13 @@ async function start() {
     console.log('Interactive calculator menu posted to Topic 5.');
   } catch (e) {
     console.error('Failed to post initial menu:', e.message);
+  }
+
+  // Start WhatsApp Cloud Hub Server
+  try {
+    whatsappServer.start();
+  } catch (waErr) {
+    console.error('Failed to start WhatsApp Server:', waErr.message);
   }
 
   // Start sequential polling loop

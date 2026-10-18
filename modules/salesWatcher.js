@@ -5,6 +5,7 @@ const zohoService = require('../services/zohoService');
 const telegramService = require('../services/telegramService');
 const profitCalculator = require('../services/profitCalculator');
 const dollarScraper = require('../services/dollarScraper');
+const whatsappService = require('../services/whatsappService');
 
 const STATE_FILE = path.join(__dirname, '..', 'state', 'sales_state.json');
 
@@ -124,6 +125,39 @@ async function checkNewInvoices(options = {}) {
       });
 
       console.log(`[SalesWatcher] Successfully announced invoice ${invoice.invoice_number} in Topic 4.`);
+
+      // ── Dispatch WhatsApp Invoices via Meta Cloud API ──
+      const formattedTotal = `$${totalSalesUsd.toLocaleString()} (~${Math.round(totalSalesIqd).toLocaleString()} IQD)`;
+      
+      // 1. Send to Customer if phone exists in Zoho
+      try {
+        const customerPhone = await zohoService.getCustomerPhone(invoice.customer_id);
+        if (customerPhone) {
+          await whatsappService.sendKurdishInvoice(customerPhone, {
+            invoiceNumber: invoice.invoice_number,
+            customerName: invoice.customer_name || 'کڕیاری بەڕێز',
+            totalAmount: formattedTotal,
+            date: invoice.date
+          });
+          console.log(`[SalesWatcher] Dispatched WhatsApp invoice to customer: ${customerPhone}`);
+        }
+      } catch (waCustErr) {
+        console.warn(`[SalesWatcher] Note: Customer WhatsApp dispatch skipped (${waCustErr.message})`);
+      }
+
+      // 2. Send instant Admin Alert to Safa (0750 758 6992)
+      try {
+        const adminPhone = '9647507586992';
+        await whatsappService.sendKurdishInvoice(adminPhone, {
+          invoiceNumber: invoice.invoice_number,
+          customerName: `${invoice.customer_name || 'کڕیار'} (Admin Alert)`,
+          totalAmount: formattedTotal,
+          date: invoice.date
+        });
+        console.log(`[SalesWatcher] Dispatched WhatsApp admin alert to ${adminPhone}`);
+      } catch (waAdminErr) {
+        console.warn(`[SalesWatcher] Note: Admin WhatsApp alert skipped (${waAdminErr.message})`);
+      }
 
       if (!state.processedInvoiceIds.includes(invoice.invoice_id)) {
         state.processedInvoiceIds.push(invoice.invoice_id);
