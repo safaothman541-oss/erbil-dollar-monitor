@@ -286,6 +286,13 @@ async function handleMessage(msg) {
       return;
     }
 
+    if (text.startsWith('/start reorder_8080')) {
+      const market = await dollarScraper.getLatestMarketRate();
+      const currentRate = market && market.ratePerDollar ? market.ratePerDollar : 1684;
+      await customerStorefront.sendProductDetails(chatId, '8080P', currentRate);
+      return;
+    }
+
     // Default in private: Show Customer Digital Storefront
     await customerStorefront.sendWelcome(chatId);
     return;

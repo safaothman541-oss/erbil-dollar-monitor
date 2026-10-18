@@ -200,8 +200,11 @@ async function generatePriceListPdf(outputPath) {
       <td style="vertical-align: middle;">
         <div class="brand-title">VERTEX COMPANY</div>
         <div class="brand-sub">General Trading, POS Hardware & Thermal Paper Solutions</div>
-        <div style="font-size: 9.5px; color: #64748B; margin-top: 2px;">
-          Erbil, Kurdistan Region, Iraq | Tel / WhatsApp: 0750 000 0000 | Telegram: @vertex_ads_bot
+        <div style="font-size: 10px; color: #1E40AF; font-weight: 800; margin-top: 3px;">
+          Website: <a href="https://vertex1.tech" style="color: #1E40AF; text-decoration: none;">vertex1.tech</a> &nbsp;|&nbsp; Tel / WhatsApp: +964 750 758 6992 (0750 758 6992)
+        </div>
+        <div style="font-size: 9px; color: #64748B; margin-top: 1px;">
+          Erbil, Kurdistan Region, Iraq &nbsp;|&nbsp; Email: vertexiqzone@gmail.com &nbsp;|&nbsp; Telegram: @vertex_ads_bot
         </div>
       </td>
       <td style="text-align: right; vertical-align: middle;">
@@ -299,10 +302,10 @@ async function generatePriceListPdf(outputPath) {
         WHOLESALE INQUIRIES & BULK CARTON ORDERS:
       </div>
       <div style="font-size: 9px; color: #4B5563;">
-        For commercial supply contracts, distributor partnership, and volume container pricing, please contact our wholesale sales department directly.
+        For commercial supply contracts, distributor partnership, and volume pricing: <b>+964 750 758 6992</b> &bull; <b>vertex1.tech</b>
       </div>
       <div style="font-size: 9.5px; font-weight: 700; color: #1E293B; margin-top: 3px; direction: rtl; text-align: right;">
-        بۆ داواکردنی بڕی جوملە (کارتۆن و کۆنتێنەر)، تکایە ڕاستەوخۆ پەیوەندی بە بەشی فرۆشتنمانەوە بکەن بۆ وەرگرتنی داشکاندنی تایبەت.
+        بۆ داواکردنی بڕی جوملە (کارتۆن و کۆنتێنەر): پەیوەندی بە <b>0750 758 6992</b> یان سەردانی <b>vertex1.tech</b> بکەن.
       </div>
     </div>
 

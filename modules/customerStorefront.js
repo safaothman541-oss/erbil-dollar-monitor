@@ -507,14 +507,25 @@ class CustomerStorefront {
 
   async sendContactInfo(chatId) {
     let msg = `🏢 <b>کۆمپانیای Vertex بۆ بازرگانی گشتی و تەکنەلۆژیا</b>\n\n`;
+    msg += `🌐 <b>وێبسایتی فەرمی:</b> <a href="https://vertex1.tech">vertex1.tech</a>\n`;
     msg += `📍 <b>ناونیشان:</b> هەرێمی کوردستان - هەولێر\n`;
-    msg += `📞 <b>پەیوەندی و واتسئەپ:</b> 0750 000 0000\n`;
+    msg += `📞 <b>پەیوەندی و تەلەفۆن:</b> <code>+964 750 758 6992</code> (0750 758 6992)\n`;
+    msg += `💬 <b>واتسئەپ:</b> <a href="https://wa.me/9647507586992">+964 750 758 6992</a>\n`;
+    msg += `✉️ <b>ئیمەیڵ:</b> vertexiqzone@gmail.com\n`;
     msg += `⏰ <b>کاتی دەوام:</b> هەموو ڕۆژێک لە 8:30 بەیانی تا 7:00 ئێوارە (جگە لە هەینی)\n`;
     msg += `🚚 <b>گەیاندن:</b> بەردەستە بۆ هەموو مارکێت، چێشتخانە و دەرمانخانەکانی هەولێر، سلێمانی، دهۆک، و سەرجەم شارەکانی عێراق.\n`;
 
+    const contactButtons = [
+      [
+        { text: '🌐 سەردانی وێبسایت (vertex1.tech)', url: 'https://vertex1.tech' },
+        { text: '💬 گفتوگۆ لە واتسئەپ', url: 'https://wa.me/9647507586992' }
+      ],
+      [{ text: '🔙 گەڕانەوە بۆ فڕۆشگا', callback_data: 'cat:home' }]
+    ];
+
     return telegramService.sendMessage(msg, {
       chatId,
-      replyMarkup: this.getMainMenuKeyboard()
+      replyMarkup: { inline_keyboard: contactButtons }
     });
   }
 }
