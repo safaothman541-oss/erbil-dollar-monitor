@@ -37,13 +37,11 @@ module.exports = async (req, res) => {
   if (req.method === 'POST') {
     try {
       const data = req.body;
-      res.status(200).json({ status: 'received' });
       await whatsappServer.handleIncomingWebhook(data);
+      return res.status(200).json({ status: 'received' });
     } catch (err) {
       console.error('[Vercel Webhook] Error:', err);
-      if (!res.headersSent) {
-        res.status(400).send('Bad Request');
-      }
+      return res.status(200).json({ status: 'error', message: err.message });
     }
   }
 };

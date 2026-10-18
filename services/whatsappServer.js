@@ -201,7 +201,8 @@ class WhatsAppServer {
       let rateStr = '168,500';
       let perDollar = 1685;
       try {
-        const market = await dollarScraper.getLatestMarketRate();
+        const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 1500));
+        const market = await Promise.race([dollarScraper.getLatestMarketRate(), timeout]);
         if (market) {
           rateStr = market.rawText || `${market.ratePer100.toLocaleString()} دینار`;
           perDollar = market.ratePerDollar || 1685;
