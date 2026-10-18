@@ -1,0 +1,9 @@
+{
+  "webhookUrl": "https://meeting-conversations-street-mere.trycloudflare.com/webhook",
+  "verifyToken": "VERTEX_SECURE_TOKEN_2026",
+  "appId": "505552122644305",
+  "wabaId": "1072965435604572",
+  "phoneId": "1411075905419124",
+  "status": "LIVE_AND_VERIFIED",
+  "subscribedFields": ["messages"]
+}
