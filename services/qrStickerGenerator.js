@@ -154,13 +154,13 @@ async function generateCartonStickerPdf(outputPath) {
     <!-- Top Brand -->
     <div class="header-banner">
       <div class="header-main">VERTEX COMPANY</div>
-      <div class="header-sub">OFFICIAL IMPORTER & DISTRIBUTOR • ERBIL, KURDISTAN</div>
+      <div class="header-sub">GENERAL TRADING & POS SOLUTIONS • ERBIL, KURDISTAN</div>
     </div>
 
     <!-- Product Title -->
     <div>
       <div class="product-title">PANDA 80×80 mm</div>
-      <div class="product-subtitle">PREMIUM THERMAL RECEIPT PAPER ROLLS</div>
+      <div class="product-subtitle">THERMAL RECEIPT PAPER ROLLS</div>
     </div>
 
     <!-- Specifications Table -->
@@ -178,8 +178,8 @@ async function generateCartonStickerPdf(outputPath) {
         <td class="spec-val">50 Rolls / Box</td>
       </tr>
       <tr>
-        <td class="spec-label">Coating</td>
-        <td class="spec-val">AAA Japan Grade</td>
+        <td class="spec-label">Quality</td>
+        <td class="spec-val">Japan Standard</td>
         <td class="spec-label">Core Size</td>
         <td class="spec-val">12 mm Standard</td>
       </tr>
@@ -201,9 +201,9 @@ async function generateCartonStickerPdf(outputPath) {
     <!-- Footer -->
     <div class="footer">
       <div style="font-weight: 800; color: #1E3A8A; font-size: 7.2pt; margin-bottom: 0.5mm;">
-        🌐 Web: vertex1.tech &nbsp;|&nbsp; 📞 Tel: +964 750 758 6992
+        🌐 Web: vertex1.tech &nbsp;|&nbsp; 📞 Tel: <span dir="ltr">0750 758 6992</span>
       </div>
-      <div><b>WhatsApp:</b> +964 750 758 6992 &nbsp;|&nbsp; <b>Telegram:</b> @vertex_ads_bot</div>
+      <div><b>WhatsApp:</b> <span dir="ltr">+964 750 758 6992</span> &nbsp;|&nbsp; <b>Telegram:</b> @vertexiqzone</div>
       <div style="font-size: 5.8pt; color: #94A3B8; margin-top: 0.5mm;">
         Vertex Company • Erbil, Kurdistan Region, Iraq • vertexiqzone@gmail.com
       </div>

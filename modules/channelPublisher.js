@@ -5,48 +5,52 @@ const zohoService = require('../services/zohoService');
 const dollarScraper = require('../services/dollarScraper');
 const pdfGenerator = require('../services/pdfPriceListGenerator');
 
+// Left-to-Right Mark to prevent phone numbers and English text from reversing in Arabic/Kurdish BiDi text
+const LTR = '\u200E';
+
 class ChannelPublisher {
   constructor() {
     this.channelId = config.CHANNEL_ID || '@vertexiqzone';
   }
 
-  getChannelButtons(productTitle = 'کاڵاکانی کۆمپانیا') {
-    const encoded = encodeURIComponent(`سڵاو، لە چەناڵی تێلیگرامەوە پەیوەندیتان پێوە دەکەم سەبارەت بە: ${productTitle}. دەخوازم داواکاری تۆمار بکەم.`);
+  getChannelButtons(productTitle = 'کاڵاکان') {
+    const encoded = encodeURIComponent(`سڵاو، دەخوازم داواکاری تۆمار بکەم سەبارەت بە: ${productTitle}`);
     return {
       inline_keyboard: [
         [
-          { text: '💬 داواکردن لە واتسئەپ', url: `https://wa.me/9647507586992?text=${encoded}` },
-          { text: '📞 0750 758 6992', url: 'https://wa.me/9647507586992' }
+          { text: `💬 داواکردن لە واتسئەپ`, url: `https://wa.me/9647507586992?text=${encoded}` },
+          { text: `📞 ${LTR}0750 758 6992`, url: 'https://wa.me/9647507586992' }
         ],
         [
-          { text: '🌐 وێبسایتی فەرمی (vertex1.tech)', url: 'https://vertex1.tech' }
+          { text: `🌐 ${LTR}vertex1.tech`, url: 'https://vertex1.tech' }
         ]
       ]
     };
   }
 
-  // 1. Pinned Corporate Welcome Post
+  // 1. Pinned Corporate Welcome Post (Modest, Factual, Professional)
   async publishWelcomePost(targetChat = null) {
     const chat = targetChat || this.channelId;
-    let msg = `🏢 <b>بەخێربێن بۆ چەناڵی فەرمیی کۆمپانیای VERTEX</b>\n`;
-    msg += `<i>ڕابەری هاوردەکردن و دابەشکردنی کاغەزی حەراری و کەرەستەکانی ژمێریاری و خاڵی فرۆش (POS) لە عێراق و هەرێمی کوردستان</i>\n\n`;
-    msg += `کۆمپانیای <b>Vertex</b> بریکار و دابینکەری سەرەکییە بۆ:\n`;
-    msg += `• 🐼 <b>کاغەزی حەراری Panda (AAA Grade):</b> قەبارەکانی 80×80، 80×19، 57×19.\n`;
-    msg += `• 🖨 <b>پرینتەری پسوولە و لەیبڵ:</b> پرینتەری خێرای Novex، Zywell، Van Gold، Zebra.\n`;
-    msg += `• 🔫 <b>بارکۆد سکانەر:</b> سکانەری خێرای وایەر و وایەرلێسی Henex و Honeywell.\n`;
-    msg += `• 💰 <b>کش دراوەر (قاصەی پارە):</b> قاصەی پۆڵایینی ئۆتۆماتیکی پێنج خانەیی.\n`;
-    msg += `• 🎁 <b>پاکێجی ئامادەکراوی سوپەرمارکێت، چێشتخانە و دەرمانخانە</b> بە گەیاندنی بێبەرامبەر.\n\n`;
+    let msg = `🏢 <b>کۆمپانیای VERTEX</b>\n`;
+    msg += `<i>دابینکردنی کاغەزی حەراری و کەرەستەکانی خاڵی فرۆش (POS)</i>\n\n`;
+    msg += `<b>کاڵا و خزمەتگوزارییە بەردەستەکان:</b>\n`;
+    msg += `• کاغەزی حەراری Panda (قەبارەکانی 80×80، 80×19، 57×19 ملم)\n`;
+    msg += `• پرینتەری پسوولەی Novex و Zywell (بە قاشکەری ئۆتۆماتیکی و پۆرتی LAN و USB)\n`;
+    msg += `• پرینتەری لەیبڵ و ستیکەری Van Gold و Zebra\n`;
+    msg += `• بارکۆد سکانەری Henex (بە وایەر و بێ وایەر)\n`;
+    msg += `• کش دراوەر (قاصەی ئۆتۆماتیکی پارەی کاشێر)\n`;
+    msg += `• پاکێجی ئامادەکراو بۆ مارکێت و چێشتخانەکان بە گەیاندنی بێبەرامبەر\n\n`;
     msg += `---------------------------------\n`;
     msg += `📍 <b>ناونیشان:</b> هەولێر - هەرێمی کوردستان، عێراق\n`;
-    msg += `🌐 <b>وێبسایتی فەرمی:</b> <a href="https://vertex1.tech">vertex1.tech</a>\n`;
-    msg += `📞 <b>پەیوەندی ڕاستەوخۆ:</b> <code>+964 750 758 6992</code> (0750 758 6992)\n`;
-    msg += `💬 <b>واتسئەپ:</b> <a href="https://wa.me/9647507586992">+964 750 758 6992</a>\n`;
+    msg += `🌐 <b>وێبسایت:</b> <a href="https://vertex1.tech">${LTR}vertex1.tech</a>\n`;
+    msg += `📞 <b>پەیوەندی و تەلەفۆن:</b> <code>${LTR}0750 758 6992</code>\n`;
+    msg += `💬 <b>واتسئەپ:</b> <code>${LTR}+964 750 758 6992</code>\n`;
     msg += `✉️ <b>ئیمەیڵ:</b> vertexiqzone@gmail.com\n\n`;
-    msg += `🚚 <i>گەیاندنی خێرا بەردەستە بۆ هەموو شوێنێکی هەولێر، سلێمانی، دهۆک و سەرجەم پارێزگاکانی عێراق.</i>`;
+    msg += `🚚 <i>گەیاندن بەردەستە بۆ هەولێر و سەرجەم شارەکانی تر.</i>`;
 
     const res = await telegramService.sendMessage(msg, {
       chatId: chat,
-      replyMarkup: this.getChannelButtons('زانیاری گشتی و بەرهەمەکان')
+      replyMarkup: this.getChannelButtons('زانیاری گشتی')
     });
 
     try {
@@ -59,7 +63,7 @@ class ChannelPublisher {
     return res;
   }
 
-  // 2. Paper Products Showcase
+  // 2. Paper Products Post
   async publishPaperPost(targetChat = null, currentRate = 1684) {
     const chat = targetChat || this.channelId;
     let p8080 = 0.86;
@@ -76,97 +80,95 @@ class ChannelPublisher {
       if (i5719 && i5719.rate) p5719 = i5719.rate;
     } catch (e) {}
 
-    let msg = `🐼 <b>کاغەزی حەراریی فەرمیی Panda (کوالیتی ئەسڵی ژاپۆنی AAA)</b>\n\n`;
-    msg += `باشترین هەڵبژاردە بۆ سەرجەم مارکێت، مۆڵ، چێشتخانە و دەرمانخانەکان. نووسینی زۆر تۆخ و ڕوونە و سەری پرینتەر لە سووتان و داخوران دەپارێزێت.\n\n`;
+    let msg = `🐼 <b>کاغەزی حەراری Panda</b>\n\n`;
+    msg += `گونجاو بۆ پرینتەری پسوولەی مارکێت، مۆڵ، چێشتخانە و کافێیەکان. چاپی تۆخ و پارێزەری سەری پرینتەر.\n\n`;
 
-    msg += `1️⃣ <b>Panda 80×80 mm (تایبەت بۆ پسوولە):</b>\n`;
+    msg += `1️⃣ <b>کاغەزی Panda 80×80 ملم:</b>\n`;
     msg += `  • پاکەتکردن: کارتۆنی ٥٠ ڕۆڵ\n`;
-    msg += `  • نرخی تاک: <b>$${p8080}</b> (~${Math.round(p8080 * currentRate).toLocaleString()} د.ع بۆ هەر ڕۆڵێک)\n`;
-    msg += `  • 📦 <i>کارتۆنی ٥٠ دانەیی: $${(p8080 * 50).toFixed(2)} (~${Math.round(p8080 * 50 * currentRate).toLocaleString()} د.ع)</i>\n\n`;
+    msg += `  • نرخی تاک: <b>$${p8080}</b> (~${Math.round(p8080 * currentRate).toLocaleString()} دینار بۆ هەر ڕۆڵێک)\n`;
+    msg += `  • نرخی ١ کارتۆن (٥٠ دانە): <b>$${(p8080 * 50).toFixed(2)}</b> (~${Math.round(p8080 * 50 * currentRate).toLocaleString()} دینار)\n\n`;
 
-    msg += `2️⃣ <b>Panda 80×19 mm (قەبارەی مامناوەند):</b>\n`;
+    msg += `2️⃣ <b>کاغەزی Panda 80×19 ملم:</b>\n`;
     msg += `  • پاکەتکردن: کارتۆنی ١٠٠ ڕۆڵ\n`;
-    msg += `  • نرخی تاک: <b>$${p8019}</b> (~${Math.round(p8019 * currentRate).toLocaleString()} د.ع)\n\n`;
+    msg += `  • نرخی تاک: <b>$${p8019}</b> (~${Math.round(p8019 * currentRate).toLocaleString()} دینار)\n\n`;
 
-    msg += `3️⃣ <b>Panda 57×19 mm (دەستی، تەکسی و ڤیزا کارت):</b>\n`;
+    msg += `3️⃣ <b>کاغەزی Panda 57×19 ملم (پرینتەری دەستی و ڤیزا کارت):</b>\n`;
     msg += `  • پاکەتکردن: کارتۆنی ١٠٠ ڕۆڵ\n`;
-    msg += `  • نرخی تاک: <b>$${p5719}</b> (~${Math.round(p5719 * currentRate).toLocaleString()} د.ع)\n\n`;
+    msg += `  • نرخی تاک: <b>$${p5719}</b> (~${Math.round(p5719 * currentRate).toLocaleString()} دینار)\n\n`;
 
     msg += `---------------------------------\n`;
-    msg += `📢 <b>داشکاندنی تایبەتی جوملە:</b>\n`;
-    msg += `بۆ داواکردنی بڕی جوملە (١٠ کارتۆن بەرەو سەرەوە یان کۆنتێنەر)، تکایە ڕاستەوخۆ پەیوەندی بە بەشی فرۆشتنمانەوە بکەن بۆ وەرگرتنی باشترین نرخی بازاڕ.\n\n`;
-    msg += `🚚 <b>گەیاندنی خێرا بۆ هەموو عێراق بەردەستە.</b>`;
+    msg += `📦 <b>بۆ داواکردنی بڕی جوملە (کارتۆن و ژمارەی زۆر):</b>\n`;
+    msg += `تکایە پەیوەندی بە بەشی فرۆشتن بکەن بۆ وەرگرتنی داشکاندن:\n`;
+    msg += `📞 تەلەفۆن: <code>${LTR}0750 758 6992</code>\n`;
+    msg += `💬 واتسئەپ: <code>${LTR}+964 750 758 6992</code>`;
 
     return telegramService.sendMessage(msg, {
       chatId: chat,
-      replyMarkup: this.getChannelButtons('کاغەزی حەراری Panda')
+      replyMarkup: this.getChannelButtons('کاغەزی Panda')
     });
   }
 
   // 3. Hardware Showcase Post (Printers, Scanners, Cash Drawers)
   async publishHardwarePost(targetChat = null, currentRate = 1684) {
     const chat = targetChat || this.channelId;
-    let msg = `🖨 <b>پرینتەری خێرا، بارکۆد سکانەر و ئامێرەکانی خاڵی فرۆش (POS)</b>\n\n`;
-    msg += `کۆمپانیای Vertex بەهێزترین و نوێترین ئامێرەکانی بەڕێوەبردنی کاشێر و مارکێت دەخاتە بەردەستان بە گەرەنتی ڕاستەقینە:\n\n`;
+    let msg = `🖨 <b>ئامێرەکانی خاڵی فرۆش (POS)</b>\n\n`;
 
-    msg += `🔹 <b>پرینتەری پسوولەی Novex 8370 (Fast Receipt Printer):</b>\n`;
-    msg += `  • خێرایی چاپ: 260 mm/s (زۆر خێرا)\n`;
-    msg += `  • دەرچە: USB + LAN (شەبەکە) - گونجاوە بۆ کاشێر و چێشتخانە/مطبخ\n`;
-    msg += `  • خاوەنی قاشکەری ئۆتۆماتیکی (Auto-Cutter) بە توانای زیاتر لە ١.٥ ملیۆن بڕین\n`;
-    msg += `  • نرخ: <b>$53.00</b> (~${Math.round(53 * currentRate).toLocaleString()} د.ع)\n\n`;
+    msg += `🔹 <b>پرینتەری پسوولەی Novex 8370:</b>\n`;
+    msg += `  • خێرایی چاپ: 260 mm/s\n`;
+    msg += `  • دەرچە: USB + LAN (شەبەکە) - بۆ کاشێر و چێشتخانە و مطبخ\n`;
+    msg += `  • خاوەنی قاشکەری ئۆتۆماتیکی (Auto-Cutter)\n`;
+    msg += `  • نرخ: <b>$53.00</b> (~${Math.round(53 * currentRate).toLocaleString()} دینار)\n\n`;
 
-    msg += `🔹 <b>بارکۆد سکانەری خێرای Henex (1D/2D QR Reader):</b>\n`;
-    msg += `  • خوێندنەوەی دەستبەجێی هەموو جۆرە بارکۆدێک لەسەر شاشەی مۆبایل و پاکەت\n`;
-    msg += `  • نرخ: <b>$50.00</b> وایەردار | <b>$75.00</b> بێوایەر (Wireless)\n\n`;
+    msg += `🔹 <b>بارکۆد سکانەری Henex (خوێندنەوەی 1D و 2D QR):</b>\n`;
+    msg += `  • وایەردار: <b>$50.00</b> (~${Math.round(50 * currentRate).toLocaleString()} دینار)\n`;
+    msg += `  • بێ وایەر (Wireless): <b>$75.00</b> (~${Math.round(75 * currentRate).toLocaleString()} دینار)\n\n`;
 
     msg += `🔹 <b>کش دراوەری ئۆتۆماتیکی (قاصەی پارەی کاشێر X10):</b>\n`;
-    msg += `  • دروستکراو لە پۆڵای قورس، ٥ خانەی دراو و دەسکەی کانزایی\n`;
-    msg += `  • بەستنەوەی ڕاستەوخۆ بە پرینتەر بۆ کرانەوەی ئۆتۆماتیکی لە کاتی چاپکردنی وەسڵ\n`;
-    msg += `  • نرخ: <b>$45.00</b> (~${Math.round(45 * currentRate).toLocaleString()} د.ع)\n\n`;
+    msg += `  • پەیکەری کانزایی پۆڵایین، ٥ خانەی دراو\n`;
+    msg += `  • بەستنەوە بە پرینتەر بۆ کرانەوەی ئۆتۆماتیکی لەگەڵ وەسڵ\n`;
+    msg += `  • نرخ: <b>$45.00</b> (~${Math.round(45 * currentRate).toLocaleString()} دینار)\n\n`;
 
-    msg += `🔹 <b>پرینتەری لەیبڵ و بارکۆد ستیکەری Van Gold VG80:</b>\n`;
-    msg += `  • چاپی ڕاستەوخۆی ستیکەری ڕەف، مێز، و لەیبڵی بارکۆد\n`;
-    msg += `  • نرخ: <b>$95.00</b> (~${Math.round(95 * currentRate).toLocaleString()} د.ع)\n\n`;
+    msg += `🔹 <b>پرینتەری لەیبڵی Van Gold VG80:</b>\n`;
+    msg += `  • چاپی لەیبڵ و ستیکەری بارکۆد و نرخی ڕەف\n`;
+    msg += `  • نرخ: <b>$95.00</b> (~${Math.round(95 * currentRate).toLocaleString()} دینار)\n\n`;
 
-    msg += `🛠 <i>هەموو ئامێرەکان خاوەنی گەرەنتی تەواون لەگەڵ ستافی تایبەت بۆ بەستنەوە و هاوکاری.</i>`;
+    msg += `📞 پەیوەندی و داواکردن: <code>${LTR}0750 758 6992</code>`;
 
     return telegramService.sendMessage(msg, {
       chatId: chat,
-      replyMarkup: this.getChannelButtons('ئامێرەکانی POS و پرینتەر')
+      replyMarkup: this.getChannelButtons('ئامێرەکانی POS')
     });
   }
 
   // 4. Bundles & Value Packs Post
   async publishBundleOffer(targetChat = null, currentRate = 1684) {
     const chat = targetChat || this.channelId;
-    let msg = `🎁 <b>ئۆفەر و پاکێجە تایبەتەکانی کۆمپانیای VERTEX (داشکاندنی گەورە)</b>\n\n`;
-    msg += `بۆ ئەوانەی دەیانەوێت پڕۆژەی نوێ (سوپەرمارکێت، چێشتخانە، کافێ یان دەرمانخانە) بکەنەوە، ئەم پاکێجانە بە تەواوی ئامادەکراون:\n\n`;
+    let msg = `🎁 <b>پاکێج و ئۆفەرەکانی VERTEX</b>\n\n`;
 
-    msg += `🏪 <b>پاکێجی ١: دەستپێکردنی سوپەرمارکێت و دەرمانخانە (Supermarket Pack)</b>\n`;
+    msg += `🏪 <b>پاکێجی ١: سوپەرمارکێت و دەرمانخانە</b>\n`;
     msg += `  • پرینتەری خێرای Novex 8370 بە قاشکەری ئۆتۆماتیکی\n`;
-    msg += `  • بارکۆد سکانەری خێرای Henex لەگەڵ پایە\n`;
-    msg += `  • کش دراوەری پۆڵایینی ئۆتۆماتیکی کاشێر\n`;
-    msg += `  • <b>دیاری تایبەت: ١ کارتۆن کاغەزی Panda 80*80 (٥٠ ڕۆڵ) بە بەهای $43</b>\n`;
-    msg += `  • 🚚 <b>گەیاندنی بێبەرامبەر</b> لە ناو هەولێر\n`;
-    msg += `  💰 <b>کۆی نرخ پێکەوە تەنها:</b> <b>$175.00</b> (~${Math.round(175 * currentRate).toLocaleString()} د.ع)\n`;
-    msg += `  <i>(نرخی ئاسایی بە جیا: $191 - تۆ بڕی $16 پاشەکەوت دەکەیت)</i>\n\n`;
+    msg += `  • بارکۆد سکانەری Henex لەگەڵ پایە\n`;
+    msg += `  • کش دراوەری پۆڵایینی ئۆتۆماتیکی\n`;
+    msg += `  • <b>١ کارتۆن کاغەزی Panda 80*80 (٥٠ ڕۆڵ)</b>\n`;
+    msg += `  • 🚚 گەیاندنی بێبەرامبەر لە هەولێر\n`;
+    msg += `  💰 <b>کۆی نرخ:</b> <b>$175.00</b> (~${Math.round(175 * currentRate).toLocaleString()} دینار)\n\n`;
 
-    msg += `🍽 <b>پاکێجی ٢: ڕێستۆرانت، مطبخ و کافێ (Restaurant LAN Pack)</b>\n`;
+    msg += `🍽 <b>پاکێجی ٢: ڕێستۆرانت و کافێ (LAN Pack)</b>\n`;
     msg += `  • پرینتەری پسوولەی Novex 8370 پۆرتی LAN (بۆ ناردنی داواکاری لە کاشێرەوە بۆ مطبخ)\n`;
-    msg += `  • دەنگی هۆشداری چاپی نوێ + بەرگەی گەرما و هەڵم دەگرێت\n`;
-    msg += `  • <b>دیاری تایبەت: ١ کارتۆن کاغەزی Panda 80*80 (٥٠ ڕۆڵ)</b>\n`;
-    msg += `  • 🚚 <b>گەیاندنی بێبەرامبەر</b> لە ناو هەولێر\n`;
-    msg += `  💰 <b>کۆی نرخ پێکەوە تەنها:</b> <b>$89.00</b> (~${Math.round(89 * currentRate).toLocaleString()} د.ع)\n\n`;
+    msg += `  • <b>١ کارتۆن کاغەزی Panda 80*80 (٥٠ ڕۆڵ)</b>\n`;
+    msg += `  • 🚚 گەیاندنی بێبەرامبەر لە هەولێر\n`;
+    msg += `  💰 <b>کۆی نرخ:</b> <b>$89.00</b> (~${Math.round(89 * currentRate).toLocaleString()} دینار)\n\n`;
 
-    msg += `📦 <b>پاکێجی ٣: ئۆفەری جوملەی ١٠ کارتۆن (Wholesale 10 Cartons Deal)</b>\n`;
-    msg += `  • <b>١٠ کارتۆن کاغەزی Panda 80*80 (٥٠٠ ڕۆڵ بە یەکەوە)</b>\n`;
-    msg += `  • حیسابکراو بە نرخی داشکاندنی $0.85 بۆ هەر ڕۆڵێک\n`;
-    msg += `  • 🚚 <b>گەیاندنی بێبەرامبەر</b> بۆ مارکێت و کۆگاکەت\n`;
-    msg += `  💰 <b>کۆی نرخ:</b> <b>$425.00</b> (~${Math.round(425 * currentRate).toLocaleString()} د.ع)`;
+    msg += `📦 <b>پاکێجی ٣: جوملەی ١٠ کارتۆن کاغەزی Panda 80*80</b>\n`;
+    msg += `  • ٥٠٠ ڕۆڵ بە نرخی داشکاندنی $0.85\n`;
+    msg += `  • 🚚 گەیاندنی بێبەرامبەر لە هەولێر\n`;
+    msg += `  💰 <b>کۆی نرخ:</b> <b>$425.00</b> (~${Math.round(425 * currentRate).toLocaleString()} دینار)\n\n`;
+
+    msg += `📞 پەیوەندی و داواکردن: <code>${LTR}0750 758 6992</code>`;
 
     return telegramService.sendMessage(msg, {
       chatId: chat,
-      replyMarkup: this.getChannelButtons('ئۆفەر و پاکێجەکان')
+      replyMarkup: this.getChannelButtons('پاکێجەکان')
     });
   }
 
@@ -178,24 +180,24 @@ class ChannelPublisher {
     await pdfGenerator.generatePriceListPdf(pdfPath);
 
     const todayDate = new Date().toLocaleDateString('en-GB');
-    let caption = `📄 <b>لیستی فەرمیی نرخەکانی کۆمپانیای VERTEX</b>\n\n`;
+    let caption = `📄 <b>لیستی نرخی کاڵاکانی کۆمپانیای VERTEX</b>\n\n`;
     caption += `📅 <b>بەروار:</b> ${todayDate}\n`;
-    caption += `💵 <b>نرخی دۆلاری بازاڕ:</b> 1$ = <b>${currentRate.toLocaleString()} دینار</b> ($100 = ${(currentRate * 100).toLocaleString()} د.ع)\n`;
-    caption += `🔄 سەرجەم نرخەکان ڕاستەوخۆ لە سیستەمی <b>Zoho Books</b> هاوکات کراون.\n\n`;
-    caption += `🌐 <b>وێبسایت:</b> vertex1.tech &nbsp;|&nbsp; 📞 <b>تەلەفۆن:</b> 0750 758 6992\n`;
-    caption += `<i>فایلی PDFی هاوپێچکراو داگرە بۆ بینینی هەموو وردەکاری، قەبارە و نرخەکان.</i>`;
+    caption += `💵 <b>نرخی دۆلار:</b> 1$ = <b>${currentRate.toLocaleString()} دینار</b> ($100 = ${(currentRate * 100).toLocaleString()} د.ع)\n`;
+    caption += `🔄 نرخەکان بەپێی سیستەمی <b>Zoho Books</b> نوێکراونەتەوە.\n\n`;
+    caption += `🌐 <b>وێبسایت:</b> ${LTR}vertex1.tech &nbsp;|&nbsp; 📞 <b>تەلەفۆن:</b> <code>${LTR}0750 758 6992</code>\n`;
+    caption += `<i>فایلی PDFی هاوپێچکراو داگرە بۆ بینینی هەموو کاڵاکان.</i>`;
 
     return telegramService.sendDocument(pdfPath, {
       chatId: chat,
       caption: caption,
-      replyMarkup: this.getChannelButtons('لیستی فەرمی نرخەکان')
+      replyMarkup: this.getChannelButtons('لیستی نرخەکان')
     });
   }
 
   // Publish all sequentially
   async publishAllShowcase(targetChat = null) {
     const chat = targetChat || this.channelId;
-    console.log(`[ChannelPublisher] Starting complete showcase publication to ${chat}...`);
+    console.log(`[ChannelPublisher] Starting refined publication to ${chat}...`);
 
     let currentRate = 1684;
     try {
@@ -222,7 +224,7 @@ class ChannelPublisher {
     // 5. Official PDF Price Sheet
     await this.publishDailyPriceList(chat, currentRate);
 
-    console.log('[ChannelPublisher] All 5 showcase posts successfully published to channel!');
+    console.log('[ChannelPublisher] All 5 refined posts published to channel.');
   }
 }
 
