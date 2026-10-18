@@ -37,7 +37,10 @@ class ChannelPublisher {
   // Helper to send photo with fallback to text
   async sendShowcasePhoto(photoFile, caption, buttons, targetChat) {
     const chat = targetChat || this.channelId;
-    const photoPath = path.join(this.assetsDir, photoFile);
+    let photoPath = photoFile.includes(path.sep) ? photoFile : path.join(this.assetsDir, photoFile);
+    if (!fs.existsSync(photoPath)) {
+      photoPath = path.join(__dirname, '..', 'assets', photoFile);
+    }
 
     if (fs.existsSync(photoPath)) {
       try {
@@ -78,7 +81,7 @@ class ChannelPublisher {
     msg += `🚚 <i>تێبینی: گەیاندن بەردەستە بۆ هەموو شارەکان (گەیاندن بێ بەرامبەر نییە - بە کرێی گواستنەوەی ئاسایی).</i>`;
 
     const res = await this.sendShowcasePhoto(
-      'vertex_logo.png',
+      'logo_light_ondark.png',
       msg,
       this.getChannelButtons('زانیاری گشتی کۆمپانیا'),
       chat
@@ -123,7 +126,7 @@ class ChannelPublisher {
     msg += `📞 پەیوەندی: <code>${LTR}0750 758 6992</code> | <code>${LTR}0750 529 9118</code>`;
 
     return this.sendShowcasePhoto(
-      'panda_80_80.webp',
+      'panda_80_80.png',
       msg,
       this.getChannelButtons('کاغەزی Panda'),
       targetChat
@@ -143,7 +146,7 @@ class ChannelPublisher {
     msg += `📞 پەیوەندی: <code>${LTR}0750 758 6992</code> | <code>${LTR}0750 529 9118</code>`;
 
     return this.sendShowcasePhoto(
-      'novex_8370.jpg',
+      'novex_8370.png',
       msg,
       this.getChannelButtons('پرینتەری Novex 8370'),
       targetChat

@@ -1,0 +1,330 @@
+[
+  {
+    "id": "4854fff2-855f-4ddf-acc6-7b39e7a974d5",
+    "name": "Receipt printer ",
+    "brand": "Epson",
+    "model": "TM-T20III Thermal Receipt Printer",
+    "price": 215.0,
+    "nobg_file": "4a2902f5ad09248c8bf374ec283f9581.png"
+  },
+  {
+    "id": "92b97204-b71a-46b7-919d-2c432bf37422",
+    "name": "Label Roll",
+    "brand": "Others",
+    "model": "100*50mm",
+    "price": 8.5,
+    "nobg_file": "be040dca5b225966324c9b586c284da4.png"
+  },
+  {
+    "id": "2b145377-6366-41da-a20f-257394341c74",
+    "name": "Cash Drawer 6.5 KG",
+    "brand": "Others",
+    "model": "CD-410",
+    "price": 50.0,
+    "nobg_file": "fb41a855b725e524c7458e65c67d3250.png"
+  },
+  {
+    "id": "b7bd8034-623c-4e1f-abc1-48d8172b3638",
+    "name": "HPRT Label Printer",
+    "brand": "HPRT",
+    "model": "LQ58",
+    "price": 115.0,
+    "nobg_file": "bb651e081e6d9698e450b2389a4626d7.png"
+  },
+  {
+    "id": "060d8359-4eee-4f07-a763-88b56edde35b",
+    "name": "Handheld Data Collector",
+    "brand": "Others",
+    "model": "DC-200",
+    "price": 120.0,
+    "nobg_file": "50716f84f025356e9bb76fce3fa4e110.png"
+  },
+  {
+    "id": "3e663e7b-232d-4d24-919e-ac26b8145a42",
+    "name": "Barcode Scanner P55",
+    "brand": "ODDeX",
+    "model": "P55",
+    "price": 115.0,
+    "nobg_file": "9176499278551515978e8ee2946f68e3.png"
+  },
+  {
+    "id": "e1e18b37-03d8-4760-a829-91c9c675d39a",
+    "name": "Label Roll",
+    "brand": "Others",
+    "model": "35*15mm",
+    "price": 2.5,
+    "nobg_file": "44d2254e3af4da4cf170031a85c448c2.png"
+  },
+  {
+    "id": "a965c4c4-e400-445d-b532-884d7c960d48",
+    "name": "Label Roll",
+    "brand": "Others",
+    "model": "58*39",
+    "price": 2.0,
+    "nobg_file": "d893cea9f72b4577fd01d10b238bf2fe.png"
+  },
+  {
+    "id": "46d4ebbd-6e3c-441a-b5bb-5df4585a7acf",
+    "name": "Zebra  Label Printer",
+    "brand": "Zebra",
+    "model": "ZD888",
+    "price": 185.0,
+    "nobg_file": "610f7b0a20b6986ecbb0d4839c1a952f.png"
+  },
+  {
+    "id": "b02fd46d-8cd9-4500-b5c1-32c5eb82a639",
+    "name": "BIISON POS System",
+    "brand": "BIISON",
+    "model": "POS-15",
+    "price": 530.0,
+    "nobg_file": "c354fd815e56e8603c0bf6870875ba75.png"
+  },
+  {
+    "id": "b4f066e9-b906-41f1-ab70-8513171efd09",
+    "name": "Pocket Wireless Barcode Scanner",
+    "brand": "ODDeX",
+    "model": "PWS-100",
+    "price": 75.0,
+    "nobg_file": "4a665ce63199b8211b851f4dcfb99b3c.png"
+  },
+  {
+    "id": "3c8b6387-9f13-4caa-9aa6-cef13baff0ef",
+    "name": "BIISON B480B Label Printer",
+    "brand": "BIISON",
+    "model": "B480B",
+    "price": 125.0,
+    "nobg_file": "14b5b508967ca77f9527846e4631f906.png"
+  },
+  {
+    "id": "5ab112c6-a502-4617-8a95-59faef064da7",
+    "name": "FingerPrint Scanner Biometric",
+    "brand": "Others",
+    "model": "FPS-100",
+    "price": 55.0,
+    "nobg_file": "9d076bffe76bb6998324a2ee2803cf46.png"
+  },
+  {
+    "id": "ed0e7b3d-67d5-4c6f-9ab8-a96ef56bb51d",
+    "name": "Label Printer",
+    "brand": "Honeywell",
+    "model": "PC42e-t",
+    "price": 235.0,
+    "nobg_file": "0e4c1c84d56b5d2e00e21680974e38e7.png"
+  },
+  {
+    "id": "787bb265-a6f6-45aa-b125-b2037f9904b5",
+    "name": "Label Roll ",
+    "brand": "Others",
+    "model": "38*25",
+    "price": 2.0,
+    "nobg_file": "9b76b9ebe193c86c4d1f0260c5886dd0.png"
+  },
+  {
+    "id": "f9eb0656-eaa8-45ce-92ad-5812a95dd306",
+    "name": "Thermal Transfer Rebbion ",
+    "brand": "Others",
+    "model": "110*300 Resin",
+    "price": 22.0,
+    "nobg_file": "9e677cdce16b7af86837cdfcdcbdbc4f.png"
+  },
+  {
+    "id": "3854acb8-e4bd-4944-9826-45c2e9977189",
+    "name": "Label Roll",
+    "brand": "Others",
+    "model": "80*80mm",
+    "price": 7.0,
+    "nobg_file": "85e358e2dca27c5172cce475a5dd90f4.png"
+  },
+  {
+    "id": "0adfc1f9-8337-4a30-817f-0b1a5b1318eb",
+    "name": "Wireless Barcode Scanner ",
+    "brand": "Henex",
+    "model": "H3308S",
+    "price": 80.0,
+    "nobg_file": "8e93c9c803e936f0b1323cf2bc6f9b44.png"
+  },
+  {
+    "id": "e76e5c67-deb9-435c-86d3-da1b9bb6020f",
+    "name": "Label Roll",
+    "brand": "Others",
+    "model": "70*70mm",
+    "price": 5.5,
+    "nobg_file": "a946ae185f45d2ecc3f449aea7177988.png"
+  },
+  {
+    "id": "45898d03-1be6-4f2f-8417-713f6412c19c",
+    "name": "BIISON Thermal Label Printer",
+    "brand": "BIISON",
+    "model": "BLP-100",
+    "price": 100.0,
+    "nobg_file": "73a6b0b2f2675afad010385e4e74169b.png"
+  },
+  {
+    "id": "cfe7e2b9-e7e2-4781-8186-9be888c266da",
+    "name": "ODDEX 2D QR Desktop Scanner",
+    "brand": "ODDeX",
+    "model": "QR-2D",
+    "price": 85.0,
+    "nobg_file": "9ac65819f169560ec4810caed5cfbecd.png"
+  },
+  {
+    "id": "3eaaad0e-4123-4420-81be-bbd5dccd1027",
+    "name": "Laser Inject Printer",
+    "brand": "Others",
+    "model": "LIP-400",
+    "price": 390.0,
+    "nobg_file": "1c8b09b4b435f801f7c0fb5c0b0dcb36.png"
+  },
+  {
+    "id": "f93d0904-0cdf-4fd6-8c24-584865ca4947",
+    "name": "Paper Roll 58mm × 19m",
+    "brand": "Others",
+    "model": "PR-5819",
+    "price": 0.37,
+    "nobg_file": "bf9fa1a4863288cc830010d1fb9dfd7d.png"
+  },
+  {
+    "id": "fd2476f8-e33b-4599-84f4-4fd776c3b283",
+    "name": "Paper Roll 80mm × 19m",
+    "brand": "Others",
+    "model": "PR-8019",
+    "price": 0.45,
+    "nobg_file": "368238291d0f3982b420f66f6f8fa457.png"
+  },
+  {
+    "id": "e9212689-7230-424f-9546-df92fbde8617",
+    "name": "Call-Guest Pager System",
+    "brand": "Others",
+    "model": "CGP-10",
+    "price": 260.0,
+    "nobg_file": "1d3279c26de95ad406d2bc7014b00dff.png"
+  },
+  {
+    "id": "930e924d-d626-49ce-8b7b-c66173019c96",
+    "name": "Emego Paper Roll 80×80mm",
+    "brand": "Others",
+    "model": "EPR-8080",
+    "price": 1.0,
+    "nobg_file": "ae0d1ad245a93262e1e14fb87f4d49cd.png"
+  },
+  {
+    "id": "2151f430-770b-4862-ba6f-8ffd16f6b201",
+    "name": "Portable Label Printer ",
+    "brand": "G&G",
+    "model": "GG 950w",
+    "price": 38.0,
+    "nobg_file": "a427da06b2c88a1bd9724126c1d00ca9.png"
+  },
+  {
+    "id": "976160ab-44bd-43b6-bbe2-f8102406ff8a",
+    "name": "Label Roll",
+    "brand": "Others",
+    "model": "100*150",
+    "price": 10.0,
+    "nobg_file": "a06025535b801a93799d5aba18f3f056.png"
+  },
+  {
+    "id": "1ed3f481-bb7d-4251-ab1e-5e2e39049af9",
+    "name": "Label Roll",
+    "brand": "Others",
+    "model": "80*50mm",
+    "price": 5.5,
+    "nobg_file": "286a27d964b05f958547336c06b05680.png"
+  },
+  {
+    "id": "052f7354-7b06-4dcc-809e-4a5ba63505df",
+    "name": "Barcode scanner ",
+    "brand": "Honeywell",
+    "model": "Orbit 7120",
+    "price": 125.0,
+    "nobg_file": "7947f06c7de95939fe86560d8e48fe74.png"
+  },
+  {
+    "id": "3fc54bb0-a71f-414e-915b-c7de1b26660c",
+    "name": "PT-210 Portable Printer",
+    "brand": "Others",
+    "model": "PT-210",
+    "price": 37.0,
+    "nobg_file": "ccdc195d4f50c0b441dd830a9c06c192.png"
+  },
+  {
+    "id": "1158ca8c-512c-4fea-8260-39a70497525d",
+    "name": "RONGTA RPP300 Portable Printer",
+    "brand": "RONGTA",
+    "model": "RPP300",
+    "price": 95.0,
+    "nobg_file": "57b671747ec3898fbbad9993c5f83a0b.png"
+  },
+  {
+    "id": "ddb69dbb-5695-475c-882d-642bded3b8d8",
+    "name": "Barcode Scanner ",
+    "brand": "Henex",
+    "model": "HC-3206",
+    "price": 50.0,
+    "nobg_file": "51d6e628e8a01493090ee501323ed989.png"
+  },
+  {
+    "id": "519c39b8-102f-4ee7-a118-273dbc626848",
+    "name": "Xprinter ",
+    "brand": "Xprinter",
+    "model": "Q80A",
+    "price": 55.0,
+    "nobg_file": "1737f48fbd6fba5d8692f7a6d35a14a4.png"
+  },
+  {
+    "id": "0b65b254-bcdf-4081-87b0-7cba3eb40ee1",
+    "name": "Xprinter ",
+    "brand": "Xprinter",
+    "model": "365b",
+    "price": 60.0,
+    "nobg_file": "64196f4b3b32af60a6de19008fa674f3.png"
+  },
+  {
+    "id": "c401bc4a-bf16-4b32-8509-5ed2e08abc0f",
+    "name": "RONGTA RLS1000 Digital Scale",
+    "brand": "RONGTA",
+    "model": "RLS1000-1100",
+    "price": 365.0,
+    "nobg_file": "f2bdc411bee13a816edaad455ab30ab2.png"
+  },
+  {
+    "id": "993f9c26-e21c-49df-88bd-96a0651698f6",
+    "name": "SUNMI V2 Android POS",
+    "brand": "SUNMI",
+    "model": "V2",
+    "price": 135.0,
+    "nobg_file": "0feb7be24006771ffe5aa8a0224ff95c.png"
+  },
+  {
+    "id": "5cb1e4d1-e272-4b5c-b7f3-a29c01d48a26",
+    "name": "Thermal Transfer Rebbion ",
+    "brand": "Others",
+    "model": "110*300 Wax",
+    "price": 14.0,
+    "nobg_file": "54c6af7524016b830c6e41029694ec7b.png"
+  },
+  {
+    "id": "cd6b04fc-5d58-4bd6-814d-ab57d3b92967",
+    "name": "Label Roll",
+    "brand": "Others",
+    "model": "100*100mm",
+    "price": 8.5,
+    "nobg_file": "725c93af4d99c2a5b29d25e228fd1c39.png"
+  },
+  {
+    "id": "93d67ed8-d7cd-4036-b1d2-f7548f812117",
+    "name": "High-Performance 2D Desktop Scanner",
+    "brand": "ODDeX",
+    "model": "DS-2000",
+    "price": 150.0,
+    "nobg_file": "c3fc7cb35c78cff40f71a32f4dfef633.png"
+  },
+  {
+    "id": "8cfba0c9-4a29-4de8-9aa4-cf2bbf6df984",
+    "name": "BIISON B802 Receipt Printer",
+    "brand": "BIISON",
+    "model": "B802",
+    "price": 75.0,
+    "nobg_file": "478b8f15689f5fd35567463423aad08f.png"
+  }
+]
