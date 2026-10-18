@@ -374,11 +374,10 @@ async function runPollingLoop() {
       }
     } catch (err) {
       const msg = err.message || '';
+      console.error('[PollLoop] Catch Error:', msg);
       if (msg.includes('Conflict')) {
-        console.log('[PollLoop] Waiting 5s for existing connection to close...');
-        await new Promise(r => setTimeout(r, 5000));
+        await new Promise(r => setTimeout(r, 6000));
       } else if (!msg.includes('timeout') && !msg.includes('ETIMEDOUT')) {
-        console.error('[PollLoop] Error:', msg);
         await new Promise(r => setTimeout(r, 3000));
       }
     }
