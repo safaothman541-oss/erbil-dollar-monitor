@@ -1,18 +1,19 @@
-name: Erbil Dollar Monitor
+name: Vertex Cloud Hub Automation
 
 on:
   push:
     branches:
       - main
   schedule:
-    - cron: '0 * * * *'
+    # Runs every 30 minutes, 24 hours a day on GitHub Cloud
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  monitor:
+  cloud-hub:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,15 +25,20 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Run Monitor Script
+      - name: Run Vertex Cloud Hub Cycle
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: node monitor.js
+          TELEGRAM_GROUP_ID: ${{ secrets.TELEGRAM_GROUP_ID }}
+          ZOHO_CLIENT_ID: ${{ secrets.ZOHO_CLIENT_ID }}
+          ZOHO_REFRESH_TOKEN: ${{ secrets.ZOHO_REFRESH_TOKEN }}
+          ZOHO_ORG_ID: ${{ secrets.ZOHO_ORG_ID }}
+          ZOHO_IQD_ID: ${{ secrets.ZOHO_IQD_ID }}
+        run: node cloud_cycle.js
 
-      - name: Commit & push last state
+      - name: Commit & push updated state
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add last_state.json
-          git diff --staged --quiet || (git commit -m "Update state [skip ci]" && git push)
+          git add last_state.json state/
+          git diff --staged --quiet || (git commit -m "chore: cloud state update [skip ci]" && git push)

@@ -233,10 +233,34 @@ class CustomerStorefront {
     });
   }
 
-  async sendCategory(chatId, categoryKey, currentRate) {
-    const matched = Object.entries(PRODUCTS).filter(([_, p]) => p.category === categoryKey);
+  async resolveProductWithZoho(productId) {
+    const p = PRODUCTS[productId];
+    if (!p) return null;
 
-    if (matched.length === 0) {
+    if (p.category === 'bundles') {
+      return p;
+    }
+
+    try {
+      const items = await zohoService.getItems();
+      const zohoItem = items.find(it => (it.sku && it.sku === p.sku) || (it.name && it.name === p.name));
+      if (zohoItem && zohoItem.rate !== undefined && zohoItem.rate !== null) {
+        return {
+          ...p,
+          priceUsd: zohoItem.rate, // Dynamic live Zoho Books selling price!
+          stockOnHand: zohoItem.actual_available_stock !== undefined ? zohoItem.actual_available_stock : zohoItem.stock_on_hand
+        };
+      }
+    } catch (e) {
+      console.error('[Storefront] Could not fetch live Zoho rate, using fallback:', e.message);
+    }
+    return p;
+  }
+
+  async sendCategory(chatId, categoryKey, currentRate) {
+    const matchedKeys = Object.keys(PRODUCTS).filter(id => PRODUCTS[id].category === categoryKey);
+
+    if (matchedKeys.length === 0) {
       return telegramService.sendMessage('ئەم بەشە لە ئێستادا بەردەست نییە.', { chatId });
     }
 
@@ -249,18 +273,18 @@ class CustomerStorefront {
     };
 
     let text = `<b>${catTitles[categoryKey] || 'کاڵاکان'}</b>\n\n`;
-    text += `نرخەکان ڕاستەوخۆ بە دۆلار و دینار بەپێی نرخی بازاڕ (1$ = ${currentRate} د.ع):\n`;
+    text += `نرخەکان ڕاستەوخۆ لە <b>Zoho Books</b> بەپێی نرخی بازاڕ (1$ = ${currentRate} د.ع):\n`;
     text += `---------------------------------\n\n`;
 
     const buttons = [];
 
-    matched.forEach(([id, p]) => {
+    for (const id of matchedKeys) {
+      const p = await this.resolveProductWithZoho(id);
       const priceIqd = Math.round(p.priceUsd * currentRate);
       text += `🔹 <b>${p.name}</b>\n`;
       text += `  • نرخی تاک: <b>$${p.priceUsd}</b> (~${priceIqd.toLocaleString()} د.ع)\n`;
-      if (p.wholesaleUsd) {
-        const wIqd = Math.round(p.wholesaleUsd * currentRate);
-        text += `  • نرخی جوملە: <b>$${p.wholesaleUsd}</b> (~${wIqd.toLocaleString()} د.ع)\n`;
+      if (p.category !== 'bundles') {
+        text += `  • 📞 <i>بۆ نرخی جوملە: پەیوەندیمان پێوە بکەن</i>\n`;
       }
       text += `\n`;
 
@@ -268,7 +292,7 @@ class CustomerStorefront {
         text: `🔍 بینین و داواکردنی ${p.name.slice(0, 24)}`,
         callback_data: `prod:${id}`
       }]);
-    });
+    }
 
     buttons.push([{ text: '🔙 گەڕانەوە بۆ بەشە سەرەکییەکان', callback_data: 'cat:home' }]);
 
@@ -279,7 +303,7 @@ class CustomerStorefront {
   }
 
   async sendProductDetails(chatId, productId, currentRate) {
-    const p = PRODUCTS[productId];
+    const p = await this.resolveProductWithZoho(productId);
     if (!p) return;
 
     const priceIqd = Math.round(p.priceUsd * currentRate);
@@ -287,21 +311,27 @@ class CustomerStorefront {
     let text = `📦 <b>${p.name}</b>\n\n`;
     text += `${p.description}\n\n`;
     text += `---------------------------------\n`;
-    text += `💰 <b>نرخ:</b> <b>$${p.priceUsd}</b> (~${priceIqd.toLocaleString()} دینار)\n`;
-    if (p.wholesaleUsd) {
-      const wIqd = Math.round(p.wholesaleUsd * currentRate);
-      text += `🏷 <b>نرخی جوملە:</b> <b>$${p.wholesaleUsd}</b> (~${wIqd.toLocaleString()} دینار)\n`;
+    text += `💰 <b>نرخی فەرمیی تاک (Zoho):</b> <b>$${p.priceUsd}</b> (~${priceIqd.toLocaleString()} دینار)\n`;
+    
+    if (p.category !== 'bundles') {
+      text += `📦 <b>بڕی جوملە:</b> تکایە ڕاستەوخۆ پەیوەندیمان پێوە بکەن بۆ وەرگرتنی داشکاندنی تایبەتی جوملە.\n`;
     }
+    
     text += `✅ <b>دۆخی کۆگا:</b> بەردەستە لە مەخزەن\n`;
     text += `🚚 <b>گەیاندن:</b> بەردەستە بۆ هەموو شارەکانی کوردستان و عێراق\n`;
 
     const buttons = [
-      [{ text: '🛒 داواکردنی ئەم کاڵایە (Order Now)', callback_data: `order_start:${productId}` }],
-      [
-        { text: '🔙 گەڕانەوە بۆ بەشەکە', callback_data: `cat:${p.category}` },
-        { text: '🏠 سەرەتا', callback_data: 'cat:home' }
-      ]
+      [{ text: '🛒 داواکردنی ئەم کاڵایە (نرخی تاک)', callback_data: `order_start:${productId}` }]
     ];
+
+    if (p.category !== 'bundles') {
+      buttons.push([{ text: '📞 داواکردنی نرخی جوملە (پەیوەندی)', callback_data: 'cat:contact' }]);
+    }
+
+    buttons.push([
+      { text: '🔙 گەڕانەوە بۆ بەشەکە', callback_data: `cat:${p.category}` },
+      { text: '🏠 سەرەتا', callback_data: 'cat:home' }
+    ]);
 
     return telegramService.sendMessage(text, {
       chatId,
@@ -376,16 +406,11 @@ class CustomerStorefront {
       session.step = 'confirm';
       userSessions.set(chatId, session);
 
-      const p = PRODUCTS[session.productId];
+      const p = await this.resolveProductWithZoho(session.productId);
       const market = await dollarScraper.getLatestMarketRate();
       const currentRate = market && market.ratePerDollar ? market.ratePerDollar : 1684;
 
-      // Check wholesale threshold
       let unitPrice = p.priceUsd;
-      if (p.wholesaleUsd && session.quantity >= 5) {
-        unitPrice = p.wholesaleUsd;
-      }
-
       const totalUsd = unitPrice * session.quantity;
       const totalIqd = Math.round(totalUsd * currentRate);
 
@@ -396,7 +421,7 @@ class CustomerStorefront {
       let summary = `📋 <b>پوختەی داواکارییەکەت:</b>\n\n`;
       summary += `📦 <b>کاڵا:</b> ${p.name}\n`;
       summary += `🔢 <b>بڕ:</b> ${session.quantity} ${p.unit || 'دانە'}\n`;
-      summary += `💵 <b>نرخی تاک:</b> $${unitPrice}\n`;
+      summary += `💵 <b>نرخی تاک (Zoho Books):</b> $${unitPrice}\n`;
       summary += `💰 <b>کۆی گشتی:</b> <b>$${totalUsd.toLocaleString()}</b> (~${totalIqd.toLocaleString()} د.ع)\n`;
       summary += `👤 <b>زانیاری کڕیار و ناونیشان:</b>\n<code>${session.customerInfo}</code>\n\n`;
       summary += `ئایا دڵنیایت لە ناردنی ئەم داواکارییە؟`;

@@ -3,43 +3,104 @@ const https = require('https');
 const { execSync } = require('child_process');
 const config = require('../config');
 
+const ZOHO_TOKEN_URL = 'https://mcp.zoho.com/baas/mcp/v1/oauth/8601bb7fecba17ee4bb0b68af10b0bc3/123627000000014020/token';
+
 class ZohoService {
   constructor() {
+    this.clientId = process.env.ZOHO_CLIENT_ID || '1000.74OGCXOVDQ7CEELAD7VUSDCCDS433P';
+    this.refreshToken = process.env.ZOHO_REFRESH_TOKEN || '1000.e2416ae8f0d49134b5ec3e234856b66a.ccfe1ec07f150f7245866bcea3368c5b';
+    this.orgId = process.env.ZOHO_ORG_ID || config.ZOHO.ORG_ID;
+    this.iqdId = process.env.ZOHO_IQD_ID || config.ZOHO.IQD_ID;
     this.tokenFile = config.ZOHO.TOKEN_FILE;
     this.refreshScript = config.ZOHO.REFRESH_SCRIPT;
-    this.orgId = config.ZOHO.ORG_ID;
-    this.iqdId = config.ZOHO.IQD_ID;
+
+    this.cachedToken = null;
+    this.tokenExpiresAt = 0;
+    this.itemsCache = null;
+    this.itemsCacheTime = 0;
   }
 
-  getAccessToken() {
-    if (!fs.existsSync(this.tokenFile)) return null;
-    try {
-      let tokens = JSON.parse(fs.readFileSync(this.tokenFile, 'utf8'));
-      if (!tokens.expires_at || Date.now() >= (tokens.expires_at - 120000)) {
-        if (fs.existsSync(this.refreshScript)) {
-          execSync(`node "${this.refreshScript}"`, { timeout: 25000, stdio: 'ignore' });
-          tokens = JSON.parse(fs.readFileSync(this.tokenFile, 'utf8'));
+  // Pure HTTPS direct token refresh (Works 100% on Cloud / GitHub Actions / Linux)
+  refreshDirectly() {
+    return new Promise((resolve, reject) => {
+      const postData = new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: this.clientId,
+        refresh_token: this.refreshToken
+      }).toString();
+
+      const req = https.request({
+        hostname: 'mcp.zoho.com',
+        path: '/baas/mcp/v1/oauth/8601bb7fecba17ee4bb0b68af10b0bc3/123627000000014020/token',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': Buffer.byteLength(postData)
         }
-      }
-      return tokens.access_token;
-    } catch (e) {
+      }, res => {
+        let body = '';
+        res.on('data', d => body += d);
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(body);
+            if (json.access_token) {
+              resolve(json);
+            } else {
+              reject(new Error(`Direct refresh error: ${body}`));
+            }
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+
+      req.on('error', reject);
+      req.write(postData);
+      req.end();
+    });
+  }
+
+  async getAccessToken() {
+    // Return cached token if still valid (buffer of 2 minutes)
+    if (this.cachedToken && Date.now() < (this.tokenExpiresAt - 120000)) {
+      return this.cachedToken;
+    }
+
+    // 1. Try Direct Cloud HTTPS Refresh
+    if (this.clientId && this.refreshToken) {
       try {
-        if (fs.existsSync(this.refreshScript)) {
-          execSync(`node "${this.refreshScript}"`, { timeout: 25000, stdio: 'ignore' });
-          const tokens = JSON.parse(fs.readFileSync(this.tokenFile, 'utf8'));
-          return tokens.access_token;
+        const refreshed = await this.refreshDirectly();
+        if (refreshed && refreshed.access_token) {
+          this.cachedToken = refreshed.access_token;
+          this.tokenExpiresAt = Date.now() + ((refreshed.expires_in || 3600) * 1000);
+          return this.cachedToken;
         }
-      } catch (err) {}
-      return null;
+      } catch (err) {
+        console.error('Direct cloud token refresh failed, trying file fallback:', err.message);
+      }
     }
+
+    // 2. Fallback to local token file if running locally
+    if (fs.existsSync(this.tokenFile)) {
+      try {
+        let tokens = JSON.parse(fs.readFileSync(this.tokenFile, 'utf8'));
+        if (!tokens.expires_at || Date.now() >= (tokens.expires_at - 120000)) {
+          if (fs.existsSync(this.refreshScript)) {
+            execSync(`node "${this.refreshScript}"`, { timeout: 25000, stdio: 'ignore' });
+            tokens = JSON.parse(fs.readFileSync(this.tokenFile, 'utf8'));
+          }
+        }
+        this.cachedToken = tokens.access_token;
+        this.tokenExpiresAt = tokens.expires_at || (Date.now() + 3600000);
+        return this.cachedToken;
+      } catch (e) {}
+    }
+
+    throw new Error('Unable to obtain a valid Zoho access token.');
   }
 
-  request(method, endpoint, data = null) {
-    const token = this.getAccessToken();
-    if (!token) {
-      return Promise.reject(new Error('No Zoho access token available.'));
-    }
-
+  async request(method, endpoint, data = null) {
+    const token = await this.getAccessToken();
     const separator = endpoint.includes('?') ? '&' : '?';
     const pathWithOrg = `/api/v3${endpoint}${separator}organization_id=${this.orgId}`;
 
@@ -82,9 +143,16 @@ class ZohoService {
     });
   }
 
-  async getItems() {
+  async getItems(forceRefresh = false) {
+    // Cache items for 60 seconds to avoid spamming Zoho on every button click, but always fresh
+    if (!forceRefresh && this.itemsCache && Date.now() - this.itemsCacheTime < 60000) {
+      return this.itemsCache;
+    }
+
     const res = await this.request('GET', '/items');
-    return res.items || [];
+    this.itemsCache = res.items || [];
+    this.itemsCacheTime = Date.now();
+    return this.itemsCache;
   }
 
   async getItem(itemId) {
@@ -109,7 +177,7 @@ class ZohoService {
   }
 
   async updateExchangeRate(ratePer100) {
-    const ratePerDollar = ratePer100 / 100; // e.g. 168500 / 100 = 1685 IQD
+    const ratePerDollar = ratePer100 / 100;
     const zohoRate = 1 / ratePerDollar;
     const today = new Date().toISOString().split('T')[0];
 
@@ -133,9 +201,7 @@ class ZohoService {
         effective_date: today,
         rate: zohoRate
       });
-    } catch (e) {
-      // Historical date might already exist, safe to ignore
-    }
+    } catch (e) {}
 
     return { ratePerDollar, zohoRate };
   }

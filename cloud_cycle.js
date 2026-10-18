@@ -1,0 +1,102 @@
+const fs = require('fs');
+const path = require('path');
+const config = require('./config');
+const dollarScraper = require('./services/dollarScraper');
+const zohoService = require('./services/zohoService');
+const telegramService = require('./services/telegramService');
+const salesWatcher = require('./modules/salesWatcher');
+const stockAuditor = require('./modules/stockAuditor');
+const dailyReporter = require('./modules/dailyReporter');
+
+async function runCloudCycle() {
+  console.log(`[${new Date().toISOString()}] === Running Vertex Cloud Cycle on GitHub Actions Server ===`);
+
+  // 1. Dollar Rate & Zoho Currency Exchange Sync
+  try {
+    const market = await dollarScraper.getLatestMarketRate();
+    if (market && market.ratePer100) {
+      const stateFile = path.join(__dirname, 'last_state.json');
+      let lastText = '';
+      if (fs.existsSync(stateFile)) {
+        try { lastText = JSON.parse(fs.readFileSync(stateFile, 'utf8')).text; } catch (e) {}
+      }
+
+      if (lastText !== market.rawText || process.argv.includes('--force')) {
+        console.log('[CloudCycle] Rate update detected:', market.rawText);
+        let zohoSynced = false;
+        let zohoInfo = null;
+
+        try {
+          zohoInfo = await zohoService.updateExchangeRate(market.ratePer100);
+          zohoSynced = true;
+          console.log(`[CloudCycle] Zoho Books exchange rate updated: 1$ = ${zohoInfo.ratePerDollar} IQD`);
+        } catch (e) {
+          console.error('[CloudCycle] Zoho update failed:', e.message);
+        }
+
+        const dateObj = new Date(market.time);
+        const options = { timeZone: 'Asia/Baghdad', hour12: true, hour: '2-digit', minute: '2-digit', year: 'numeric', month: '2-digit', day: '2-digit' };
+        const localTimeStr = dateObj.toLocaleString('en-GB', options);
+
+        let msg = `🔔 <b>ئاگاداری نرخی نوێی دۆلار لە بازاڕ</b>\n\n`;
+        msg += `💵 <b>نرخ:</b> <code>${market.rawText}</code>\n`;
+        msg += `⏰ <b>کات:</b> ${localTimeStr}\n`;
+        msg += `📢 <b>سەرچاوە:</b> @bazari_dolaraka\n`;
+
+        if (zohoSynced && zohoInfo) {
+          msg += `\n🔄 <b>سیستەمی Zoho Books نوێکرایەوە:</b>\n`;
+          msg += `   • 1$ = <b>${zohoInfo.ratePerDollar.toLocaleString()} دینار</b>\n`;
+        }
+
+        msg += `\n☁️ <i>ئەم ئاگادارییە لە سێرڤەری کلاودی GitHub Actionsـەوە نێردراوە</i>`;
+
+        await telegramService.sendMessage(msg, { threadId: config.TOPICS.DOLLAR });
+
+        fs.writeFileSync(stateFile, JSON.stringify({
+          channel: 'bazari_dolaraka',
+          text: market.rawText,
+          rate: market.ratePer100,
+          zoho_synced: zohoSynced,
+          time: market.time,
+          updated_at: new Date().toISOString()
+        }, null, 2), 'utf8');
+      } else {
+        console.log('[CloudCycle] Dollar rate unchanged.');
+      }
+    }
+  } catch (err) {
+    console.error('[CloudCycle] Dollar check error:', err.message);
+  }
+
+  // 2. Check for New Invoices in Zoho Books
+  try {
+    await salesWatcher.checkNewInvoices();
+  } catch (err) {
+    console.error('[CloudCycle] Sales check error:', err.message);
+  }
+
+  // 3. Stock Level Audit
+  try {
+    await stockAuditor.auditStock();
+  } catch (err) {
+    console.error('[CloudCycle] Stock audit error:', err.message);
+  }
+
+  // 4. Evening Report Check (8:00 PM Baghdad Time = 17:00 UTC)
+  try {
+    const now = new Date();
+    const utcHours = now.getUTCHours();
+    const baghdadHours = (utcHours + 3) % 24;
+
+    if (baghdadHours === 20 || process.argv.includes('--report')) {
+      console.log('[CloudCycle] Generating Evening Report...');
+      await dailyReporter.generateDailyReport();
+    }
+  } catch (err) {
+    console.error('[CloudCycle] Daily report error:', err.message);
+  }
+
+  console.log(`[${new Date().toISOString()}] === Vertex Cloud Cycle Completed Successfully ===`);
+}
+
+runCloudCycle();
