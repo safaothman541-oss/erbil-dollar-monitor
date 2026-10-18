@@ -10,6 +10,9 @@ const PHONE_1 = '\u200E0750 758 6992';
 const PHONE_2 = '\u200E0750 529 9118';
 const DELIVERY_NOTE = 'گەیاندن بەردەستە بۆ هەموو شارەکان (گەیاندن بێ بەرامبەر نییە - بە کرێی گواستنەوەی ئاسایی)';
 
+// In-memory customer sessions to prevent spam and allow smooth human handoff
+const customerSessions = new Map();
+
 class WhatsAppServer {
   constructor() {
     this.port = config.WHATSAPP.PORT || 3000;
@@ -170,10 +173,30 @@ class WhatsAppServer {
     }
   }
 
-  async respondToCustomer(from, text) {
-    const lower = text.toLowerCase();
+  // Get or initialize customer session
+  getSession(phone) {
+    if (!customerSessions.has(phone)) {
+      customerSessions.set(phone, {
+        welcomeSentAt: 0,
+        mutedUntil: 0,
+        lastInteractionAt: 0
+      });
+    }
+    return customerSessions.get(phone);
+  }
 
-    // 1. Dollar Rate Query
+  async respondToCustomer(from, text) {
+    const session = this.getSession(from);
+    const now = Date.now();
+    const lower = (text || '').toLowerCase().trim();
+
+    // 1. Check if bot is MUTED for this customer (Human Agent handoff active)
+    if (session.mutedUntil > now) {
+      console.log(`[WhatsAppServer] Bot is currently muted for ${from} (Human conversation in progress).`);
+      return;
+    }
+
+    // 2. Specific Query: Dollar Rate
     if (lower.includes('دۆلار') || lower.includes('dollar') || lower.includes('صرف') || lower.includes('rate')) {
       let rateStr = '168,500';
       let perDollar = 1685;
@@ -185,73 +208,103 @@ class WhatsAppServer {
         }
       } catch (e) {}
 
-      let reply = `💵 <b>نرخی نوێی دۆلار لە بازاڕی هەولێر</b>\n\n`;
-      reply += `• 100$ = <b>${rateStr}</b>\n`;
-      reply += `• 1$ = <b>${perDollar.toLocaleString()} دینار</b>\n\n`;
-      reply += `🏢 کۆمپانیای ڤێرتێکس (Vertex)\n`;
-      reply += `📞 پەیوەندی:\n${PHONE_1}\n${PHONE_2}\n\n`;
-      reply += `📢 چەناڵی فەرمی: https://t.me/vertexiqzone`;
-
-      await whatsappService.sendText(from, reply.replace(/<b>|<\/b>/g, '*'));
-      return;
-    }
-
-    // 2. Price List / Catalog Query
-    if (lower.includes('لیست') || lower.includes('نرخ') || lower.includes('price') || lower.includes('catalog') || lower.includes('pdf')) {
-      let reply = `📋 *لیستی فەرمیی کاڵاکانی کۆمپانیای Vertex*\n\n`;
-      reply += `هەموو ڕۆژێک نوێترین لیستی نرخەکان بە تەواوی وێنە و مواسەفات لە چەناڵی فەرمیمان بڵاودەکرێتەوە:\n`;
-      reply += `👉 https://t.me/vertexiqzone\n\n`;
-      reply += `🚗 *گەیاندن:*\n${DELIVERY_NOTE}\n\n`;
-      reply += `📞 *پەیوەندی بە کارمەندانی فرۆشتن:*\n`;
-      reply += `• ${PHONE_1}\n`;
-      reply += `• ${PHONE_2}\n\n`;
-      reply += `دەتوانیت ناوی هەر کاڵایەک بنێریت (بۆ نموونە: Panda, Zywell, Novex, ستیکەر) تا ڕاستەوخۆ مواسەفات و نرخەکەت بۆ بنێرین.`;
+      let reply = `💵 *نوێترین نرخی دۆلار لە بازاڕی هەولێر:*\n\n`;
+      reply += `• 100$ = *${rateStr}*\n`;
+      reply += `• 1$ = *${perDollar.toLocaleString()} دینار*\n\n`;
+      reply += `🏢 *کۆمپانیای Vertex*\n`;
+      reply += `📞 فرۆشتن: ${PHONE_1} | ${PHONE_2}`;
 
       await whatsappService.sendText(from, reply);
+      session.lastInteractionAt = now;
       return;
     }
 
-    // 3. Product Search (Panda, Zywell, Novex, etc.)
+    // 3. Specific Query: Price List / Catalog
+    if (lower.includes('لیست') || lower.includes('نرخ') || lower.includes('price') || lower.includes('catalog') || lower.includes('pdf')) {
+      let reply = `📋 *لیستی نرخ و کەتەلۆگی کۆمپانیای Vertex*\n\n`;
+      reply += `دەتوانیت تەواوی وێنە و مواسەفات و نرخی ڕۆژ لە چەناڵی فەرمیمان ببینیت:\n`;
+      reply += `👉 https://t.me/vertexiqzone\n\n`;
+      reply += `🚗 *گەیاندن:*\n${DELIVERY_NOTE}\n\n`;
+      reply += `📞 *پەیوەندی ڕاستەوخۆ بە فرۆشتن:*\n`;
+      reply += `• ${PHONE_1}\n`;
+      reply += `• ${PHONE_2}`;
+
+      await whatsappService.sendText(from, reply);
+      session.lastInteractionAt = now;
+      return;
+    }
+
+    // 4. Specific Query: Product Inquiries (Panda, Novex, etc.)
     if (lower.includes('panda') || lower.includes('8080') || lower.includes('کاغەز')) {
       let reply = `🐼 *کاغەزی حەراری Panda 80×80 (High Quality)*\n\n`;
-      reply += `• باشترین کوالێتی کاغەزی حەراری لە عێراق\n`;
-      reply += `• نووسینی زۆر تۆخ و سەری پرینتەر لە سووتان دەپارێزێت\n`;
+      reply += `• باشترین کواڵیتی کاغەزی حەراری لە عێراق\n`;
+      reply += `• نووسینی زۆر تۆخ و درەوشاوە، سەری پرینتەر لە سووتان دەپارێزێت\n`;
       reply += `• کارتۆنی ٥٠ دانەیی\n\n`;
       reply += `💰 نرخ: *$0.86* بۆ هەر دانەیەک\n`;
       reply += `🚗 ${DELIVERY_NOTE}\n\n`;
-      reply += `📞 داواکردن:\n${PHONE_1}\n${PHONE_2}`;
+      reply += `📞 داواکردن: ${PHONE_1} | ${PHONE_2}`;
 
       await whatsappService.sendText(from, reply);
+      session.lastInteractionAt = now;
       return;
     }
 
-    if (lower.includes('novex') || lower.includes('8370') || lower.includes('پرینتەر')) {
+    if (lower.includes('novex') || lower.includes('8370') || lower.includes('پرینتەر') || lower.includes('printer')) {
       let reply = `🖨 *پرینتەری پسوولەی Novex 8370 Ultra Fast*\n\n`;
       reply += `• خێرایی چاپ: 260mm/s زۆر خێرا\n`;
       reply += `• دەرچەی USB + LAN (شەبەکە بۆ مەتبەخ و کاشێر)\n`;
       reply += `• قاشکەری ئۆتۆماتیکی (Auto-Cutter)\n\n`;
       reply += `💰 نرخ: *$53.00*\n`;
       reply += `🚗 ${DELIVERY_NOTE}\n\n`;
-      reply += `📞 داواکردن:\n${PHONE_1}\n${PHONE_2}`;
+      reply += `📞 داواکردن: ${PHONE_1} | ${PHONE_2}`;
 
       await whatsappService.sendText(from, reply);
+      session.lastInteractionAt = now;
       return;
     }
 
-    // 4. Default Welcome Greeting
-    let welcome = `🌟 *بەخێربێن بۆ کۆمپانیای ڤێرتێکس (Vertex)*\n`;
-    welcome += `کۆمپانیای بازرگانی گشتی بۆ کەرەستە و پێداویستییەکانی POS و مارکێت و تەکنەلۆژیا لە عێراق و هەرێمی کوردستان.\n\n`;
-    welcome += `چۆن دەتوانین هاوکاریتان بکەین؟\n\n`;
-    welcome += `• بنووسە *«نرخ»* یان *«لیست»* بۆ بینینی لیستی نرخەکان\n`;
-    welcome += `• بنووسە *«دۆلار»* بۆ زانینی نوێترین نرخی دۆلار\n`;
-    welcome += `• بنووسە ناوی کاڵاکە (وەک *Panda* یان *Novex*) بۆ بینینی مواسەفات\n\n`;
-    welcome += `🚗 *گەیاندن:*\n${DELIVERY_NOTE}\n\n`;
-    welcome += `📞 *پەیوەندی ڕاستەوخۆ بە کارمەندانی فرۆشتن:*\n`;
-    welcome += `• ${PHONE_1}\n`;
-    welcome += `• ${PHONE_2}\n\n`;
-    welcome += `📢 چەناڵی تێلیگرام: https://t.me/vertexiqzone`;
+    // 5. Short Greetings (سڵاو، hi, hello)
+    const isGreeting = ['سڵاو', 'سلام', 'slaw', 'hello', 'hi', 'مرحبا', 'سلاو'].some(g => lower === g || lower.startsWith(g + ' '));
 
-    await whatsappService.sendText(from, welcome);
+    if (isGreeting) {
+      // If welcome was already sent within the last 6 hours, give a SHORT warm reply, don't spam!
+      if (now - session.welcomeSentAt < 6 * 3600 * 1000) {
+        await whatsappService.sendText(from, `سڵاو لە ئێوەش بەڕێزم! چۆن دەتوانم هاوکاریتان بکەم؟\n(دەتوانیت ناوی کاڵاکە بنووسیت یان بنووسە *«نرخ»* یان *«دۆلار»*)`);
+        session.lastInteractionAt = now;
+        return;
+      }
+
+      // First time greeting: Send clean official welcome
+      let welcome = `🌟 *بەخێربێن بۆ کۆمپانیای ڤێرتێکس (Vertex)*\n`;
+      welcome += `کۆمپانیای بازرگانی گشتی بۆ کەرەستەی POS و مارکێت لە عێراق.\n\n`;
+      welcome += `چۆن دەتوانین هاوکاریتان بکەین؟\n`;
+      welcome += `• بنووسە *«نرخ»* بۆ لیستی نرخەکان\n`;
+      welcome += `• بنووسە *«دۆلار»* بۆ نوێترین نرخی بازاڕ\n`;
+      welcome += `• بنووسە ناوی کاڵاکە (وەک *Panda* یان *Novex*) بۆ بینینی مواسەفات\n\n`;
+      welcome += `🚗 *گەیاندن:*\n${DELIVERY_NOTE}\n\n`;
+      welcome += `📞 *پەیوەندی ڕاستەوخۆ بە فرۆشتن:*\n`;
+      welcome += `• ${PHONE_1}\n`;
+      welcome += `• ${PHONE_2}`;
+
+      await whatsappService.sendText(from, welcome);
+      session.welcomeSentAt = now;
+      session.lastInteractionAt = now;
+      return;
+    }
+
+    // 6. Natural Language / Complex Questions -> Human Agent Handoff & Mute Bot
+    // Instead of repeating the welcome banner like a robot, politely notify customer that sales agent will answer
+    let handoffMsg = `بەڕێزم پەیامەکەت گەیشت، بە زووترین کات کارمەندانی فرۆشتنمان لێرە وەڵامت دەدەنەوە.\n\n`;
+    handoffMsg += `📞 ئەگەر داواکاری بەپەلەت هەیە دەتوانیت پەیوەندی بکەیت بە:\n`;
+    handoffMsg += `• ${PHONE_1}\n`;
+    handoffMsg += `• ${PHONE_2}`;
+
+    await whatsappService.sendText(from, handoffMsg);
+
+    // Mute bot for this customer for 3 hours so human agent can chat without bot interruption
+    session.mutedUntil = now + (3 * 3600 * 1000);
+    session.lastInteractionAt = now;
+    console.log(`[WhatsAppServer] Human handoff triggered for ${from}. Bot muted for 3 hours.`);
   }
 }
 
