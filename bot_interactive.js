@@ -6,6 +6,7 @@ const profitCalculator = require('./services/profitCalculator');
 const salesWatcher = require('./modules/salesWatcher');
 const stockAuditor = require('./modules/stockAuditor');
 const dailyReporter = require('./modules/dailyReporter');
+const customerStorefront = require('./modules/customerStorefront');
 
 let lastUpdateId = 0;
 let lastEveningReportDate = null;
@@ -117,6 +118,59 @@ async function handleCallback(cb) {
   const market = await dollarScraper.getLatestMarketRate();
   const currentRate = market && market.ratePerDollar ? market.ratePerDollar : 1684;
 
+  // Customer Storefront Callbacks
+  if (data.startsWith('cat:')) {
+    const cat = data.split(':')[1];
+    if (cat === 'home') {
+      await customerStorefront.sendWelcome(chatId);
+    } else if (cat === 'contact') {
+      await customerStorefront.sendContactInfo(chatId);
+    } else if (cat === 'dollar') {
+      let msg = `💵 <b>نرخی ئێستای دۆلاری بازاڕ:</b>\n`;
+      msg += `• نرخ لە بازاڕ: <code>${market ? market.rawText : '100=168,400'}</code>\n`;
+      msg += `• 1$ = <b>${currentRate.toLocaleString()} دینار</b>\n\n`;
+      msg += `<i>هەموو نرخەکانی فڕۆشگا بەپێی ئەم نرخە حیساب دەکرێن.</i>`;
+      await telegramService.sendMessage(msg, { chatId, replyMarkup: customerStorefront.getMainMenuKeyboard() });
+    } else {
+      await customerStorefront.sendCategory(chatId, cat, currentRate);
+    }
+    return;
+  }
+
+  if (data.startsWith('prod:')) {
+    const prodId = data.replace('prod:', '');
+    await customerStorefront.sendProductDetails(chatId, prodId, currentRate);
+    return;
+  }
+
+  if (data.startsWith('order_start:')) {
+    const prodId = data.replace('order_start:', '');
+    await customerStorefront.startOrderFlow(chatId, prodId);
+    return;
+  }
+
+  if (data.startsWith('order_qty:')) {
+    const qty = data.replace('order_qty:', '');
+    await customerStorefront.handleQuantitySelected(chatId, qty);
+    return;
+  }
+
+  if (data === 'order_submit') {
+    await customerStorefront.submitOrder(chatId);
+    return;
+  }
+
+  // Admin button to acknowledge order
+  if (data.startsWith('zoho_create_order:')) {
+    const orderId = data.replace('zoho_create_order:', '');
+    await telegramService.sendMessage(`✅ داواکاری #${orderId} لەلایەن تیمەوە بینرا و لە پڕۆسەی ئامادەکردن و گەیاندندایە.`, {
+      chatId: config.GROUP_CHAT_ID,
+      threadId: config.TOPICS.SALES
+    });
+    return;
+  }
+
+  // Calculator Callbacks
   if (data.startsWith('calc:')) {
     const sku = data.split(':')[1];
     const items = await zohoService.getItems();
@@ -174,13 +228,40 @@ async function handleMessage(msg) {
   const chatId = msg.chat.id;
   const threadId = msg.message_thread_id;
   const text = (msg.text || '').trim();
+  const isPrivate = msg.chat.type === 'private';
 
-  // If command /start or /help
+  // --- Private Chat with Customer ---
+  if (isPrivate) {
+    // Check if customer is entering info during an active order
+    const handledByOrder = await customerStorefront.handleTextReply(chatId, text);
+    if (handledByOrder) return;
+
+    if (text.startsWith('/calc') || text.startsWith('/price')) {
+      const cleanText = text.replace(/^\/calc\s*/i, '').replace(/^\/price\s*/i, '');
+      await handleCalculatorQuery(chatId, null, cleanText);
+      return;
+    }
+
+    if (text.startsWith('/dollar')) {
+      const market = await dollarScraper.getLatestMarketRate();
+      const currentRate = market && market.ratePerDollar ? market.ratePerDollar : 1684;
+      let dMsg = `💵 <b>نرخی ئێستای دۆلار:</b> <code>${market ? market.rawText : '100=168,400'}</code> (1$ = ${currentRate.toLocaleString()} د.ع)\n`;
+      await telegramService.sendMessage(dMsg, { chatId, replyMarkup: customerStorefront.getMainMenuKeyboard() });
+      return;
+    }
+
+    // Default in private: Show Customer Digital Storefront
+    await customerStorefront.sendWelcome(chatId);
+    return;
+  }
+
+  // --- Supergroup Topic Handlers ---
+  // If command /start or /help in group
   if (text.startsWith('/start') || text.startsWith('/help')) {
     let welcome = `👋 <b>بەخێربێن بۆ سیستەمی یەکگرتووی کۆمپانیای Vertex</b>\n\n`;
     welcome += `ئەم بۆتە بەستراوەتەوە بە هەموو بەشەکانی گروپ:\n`;
     welcome += `• 💵 <b>Topic 3:</b> نرخی دۆلاری بازاڕ و نوێکردنەوەی ئۆتۆماتیکی لە Zoho\n`;
-    welcome += `• 🧾 <b>Topic 4:</b> وەسڵ و فرۆشتنی نوێ بە قازانجی ڕاستەقینە\n`;
+    welcome += `• 🧾 <b>Topic 4:</b> وەسڵ و داواکارییە نوێیەکانی فڕۆشگا\n`;
     welcome += `• 🧮 <b>Topic 5:</b> حاسیبەی نرخ و قازانج و پێشنیاری فرۆش\n`;
     welcome += `• ⚠️ <b>Topic 6:</b> هۆشداریی کەمی کاڵاکانی کۆگا\n`;
     welcome += `• 📊 <b>Topic 7:</b> ڕاپۆرتی ڕۆژانەی ئێواران\n\n`;
