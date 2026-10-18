@@ -151,7 +151,7 @@ async function runCloudCycle() {
     }).format(now), 10);
     const todayBaghdad = baghdadFormatter.format(now);
 
-    const isPublishRequested = process.argv.includes('--publish') || (baghdadHour >= 9 && baghdadHour <= 12 && lastChannelDate !== todayBaghdad);
+    const isPublishRequested = process.argv.includes('--publish') || (baghdadHour >= 10 && baghdadHour <= 11 && lastChannelDate !== todayBaghdad);
 
     if (isPublishRequested) {
       console.log(`[CloudCycle] Publishing daily English price list to channel for ${todayBaghdad}...`);

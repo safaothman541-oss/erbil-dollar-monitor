@@ -15,6 +15,7 @@ const whatsappService = require('./services/whatsappService');
 
 let lastUpdateId = 0;
 let lastEveningReportDate = null;
+let lastPriceListDate = null;
 
 // Build Interactive Calculator Keyboards
 function getCalculatorKeyboard() {
@@ -462,6 +463,15 @@ async function backgroundCycle() {
       console.log('[Background] Evening report time reached (20:00 Baghdad).');
       await dailyReporter.generateDailyReport();
       lastEveningReportDate = todayDateStr;
+    }
+
+    // 4. Morning Price List Publication check (10:00 AM Baghdad time)
+    if (baghdadHour === 10 && lastPriceListDate !== todayDateStr) {
+      console.log('[Background] Morning Price List publication time reached (10:00 Baghdad).');
+      const market = await dollarScraper.getLatestMarketRate();
+      const currentRate = market && market.ratePerDollar ? market.ratePerDollar : 1684;
+      await channelPublisher.publishDailyPriceList(config.CHANNEL_ID, currentRate);
+      lastPriceListDate = todayDateStr;
     }
 
   } catch (err) {

@@ -30,16 +30,19 @@ class ChannelPublisher {
   }
 
   getChannelButtons(productTitle = 'کاڵاکان', directUrl = null) {
-    const enc = encodeURIComponent(`سڵاو، دەخوازم داواکاری تۆمار بکەم سەبارەت بە: ${productTitle}`);
+    // 1-Click Direct Order pre-filled template
+    const prefillText = `سڵاو، داواکاری کڕینی (${productTitle})م هەیە بۆ ئەم ناونیشانە:\n\nناو:\nشار / ناونیشان:\nژمارەی مۆبایل:\nبڕ (تەعداد):`;
+    const enc = encodeURIComponent(prefillText);
+
     return {
       inline_keyboard: [
         [
-          { text: `💬 داواکردن لە واتسئەپ (١)`, url: `https://wa.me/9647507586992?text=${enc}` },
-          { text: `💬 داواکردن لە واتسئەپ (٢)`, url: `https://wa.me/9647505299118?text=${enc}` }
+          { text: `🛒 داواکردنی خێرا (واتسئەپ ١)`, url: `https://wa.me/9647505299118?text=${enc}` },
+          { text: `🛒 داواکردنی خێرا (واتسئەپ ٢)`, url: `https://wa.me/9647507586992?text=${enc}` }
         ],
         [
-          { text: `📞 ${LTR}0750 758 6992`, url: 'https://wa.me/9647507586992' },
-          { text: `📞 ${LTR}0750 529 9118`, url: 'https://wa.me/9647505299118' }
+          { text: `📞 ${LTR}0750 529 9118`, url: 'https://wa.me/9647505299118' },
+          { text: `📞 ${LTR}0750 758 6992`, url: 'https://wa.me/9647507586992' }
         ],
         [
           { text: `🌐 بینین لە وێبسایت: vertex1.tech`, url: directUrl || 'https://vertex1.tech' }
@@ -135,7 +138,7 @@ class ChannelPublisher {
 
     caption += `💵 <b>نرخ:</b> <b>$${priceUsd.toFixed(2)}</b> (~<b>${priceIqd.toLocaleString()}</b> دینار)\n\n`;
     caption += `🚚 <i>تێبینی: گەیاندن بەردەستە بۆ هەموو شارەکان (گەیاندن بێ بەرامبەر نییە - بە کرێی گواستنەوەی ئاسایی).</i>\n`;
-    caption += `📞 پەیوەندی و داواکردن: <code>${LTR}0750 758 6992</code> | <code>${LTR}0750 529 9118</code>`;
+    caption += `📞 پەیوەندی و داواکردن: <code>${LTR}0750 529 9118</code> | <code>${LTR}0750 758 6992</code>`;
 
     // Locate full-quality photo
     let photoPath = null;
