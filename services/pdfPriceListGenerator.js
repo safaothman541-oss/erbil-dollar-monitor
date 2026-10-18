@@ -1,142 +1,322 @@
-const PDFDocument = require('pdfkit');
 const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
 const zohoService = require('./zohoService');
 const dollarScraper = require('./dollarScraper');
+const { convertHtmlToPdf } = require('./htmlPdfEngine');
 
 async function generatePriceListPdf(outputPath) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const doc = new PDFDocument({ margin: 40, size: 'A4' });
-      const stream = fs.createWriteStream(outputPath);
-      doc.pipe(stream);
+  // 1. Get live dollar rate
+  let dollarRate = 1684;
+  try {
+    const market = await dollarScraper.getLatestMarketRate();
+    if (market && market.ratePerDollar) dollarRate = market.ratePerDollar;
+  } catch (e) {}
 
-      // Get live dollar rate
-      let dollarRate = 1684;
-      try {
-        const market = await dollarScraper.getLatestMarketRate();
-        if (market && market.ratePerDollar) dollarRate = market.ratePerDollar;
-      } catch (e) {}
+  // 2. Get live items from Zoho Books
+  let zohoItems = [];
+  try {
+    zohoItems = await zohoService.getItems();
+  } catch (e) {}
 
-      // Get live items from Zoho Books
-      let zohoItems = [];
-      try {
-        zohoItems = await zohoService.getItems();
-      } catch (e) {}
+  const getZohoPrice = (sku, fallback) => {
+    const found = zohoItems.find(it => (it.sku && it.sku === sku) || (it.name && it.name.includes(sku)));
+    return (found && found.rate !== undefined && found.rate !== null) ? found.rate : fallback;
+  };
 
-      const getZohoPrice = (sku, fallback) => {
-        const found = zohoItems.find(it => (it.sku && it.sku === sku) || (it.name && it.name.includes(sku)));
-        return (found && found.rate !== undefined) ? found.rate : fallback;
-      };
+  const todayDate = new Date().toLocaleDateString('en-GB');
+  const qrBase64 = await QRCode.toDataURL('https://t.me/vertex_ads_bot', { margin: 1, width: 220 });
 
-      // Header Banner
-      doc.rect(40, 40, 515, 75).fill('#1A365D');
-      doc.fillColor('#FFFFFF').fontSize(22).font('Helvetica-Bold')
-        .text('VERTEX COMPANY', 55, 52);
-      doc.fontSize(10).font('Helvetica')
-        .text('General Trading, POS Hardware & Thermal Paper Solutions', 55, 78);
-      doc.text('Erbil, Kurdistan Region, Iraq | Tel: 0750 000 0000 | Telegram: @vertex_ads_bot', 55, 93);
+  // Product Data
+  const paperItems = [
+    { name: 'Panda Thermal Paper 80*80', sku: '8080P', spec: '80×80mm, High-grade Japan coating, dark print', pack: '50 Rolls / Box', price: getZohoPrice('8080P', 0.86) },
+    { name: 'Panda Thermal Paper 80*19', sku: 'PaperRoll-Panda', spec: '80×19mm, Compact desktop & POS printer', pack: '100 Rolls / Box', price: getZohoPrice('PaperRoll-Panda', 0.65) },
+    { name: 'Panda Thermal Paper 57*19', sku: 'Paper Roll Panda', spec: '57×19mm, Portable, Taxi & Handheld POS', pack: '100 Rolls / Box', price: getZohoPrice('Paper Roll Panda', 0.40) }
+  ];
 
-      // Subheader / Exchange Rate Notice
-      const todayDate = new Date().toLocaleDateString('en-GB');
-      doc.rect(40, 125, 515, 30).fill('#EDF2F7');
-      doc.fillColor('#2D3748').fontSize(10).font('Helvetica-Bold')
-        .text(`DAILY OFFICIAL PRICE SHEET - ${todayDate}`, 55, 134);
-      doc.font('Helvetica').text(`Market Exchange Rate: $100 = ${(dollarRate * 100).toLocaleString()} IQD (1$ = ${dollarRate.toLocaleString()} IQD)`, 280, 134);
+  const hardwareItems = [
+    { name: 'Novex 8370 Thermal Receipt Printer', sku: 'Novex-8370', spec: '260mm/s Fast, Auto-cutter, USB + LAN ports', pack: '1 Unit (Full Kit)', price: getZohoPrice('Novex-8370', 53.00) },
+    { name: 'Zywell 310 Heavy-Duty POS Printer', sku: 'zywell 310', spec: 'Industrial high-volume thermal printer, LAN+USB', pack: '1 Unit', price: getZohoPrice('zywell 310', 95.00) },
+    { name: 'Van Gold VG80 Label Printer', sku: 'Label Printer- VG80', spec: 'Thermal barcode & shelf sticker printer', pack: '1 Unit', price: getZohoPrice('Label Printer- VG80', 95.00) },
+    { name: 'Zebra ZD230 Label Printer', sku: 'ZEBRA-ZD230', spec: 'Original Zebra industrial desktop barcode printer', pack: '1 Unit', price: getZohoPrice('ZEBRA-ZD230', 175.00) },
+    { name: 'PT-210 Portable Bluetooth Printer', sku: 'PT-210', spec: '58mm wireless mobile receipt printer', pack: '1 Unit', price: getZohoPrice('PT-210', 37.00) },
+    { name: 'Henex High-Speed Wired Scanner', sku: 'Henex-Wired', spec: '1D/2D QR code instant reader with stand & USB', pack: '1 Unit', price: getZohoPrice('Henex-Wired', 50.00) },
+    { name: 'Henex 2210 2D Wireless Scanner', sku: 'Henex-2210', spec: '2.4G & Bluetooth wireless, 100m range, long battery', pack: '1 Unit', price: getZohoPrice('Henex-2210', 75.00) },
+    { name: 'Honeywell Orbit 7120 Scanner', sku: 'HONEYWELL-ORBIT7120', spec: 'Hands-free omnidirectional laser cashier scanner', pack: '1 Unit', price: getZohoPrice('HONEYWELL-ORBIT7120', 120.00) },
+    { name: 'Automatic Cash Drawer (X10)', sku: 'X10-CASH DRAWER', spec: 'Heavy metal, 5 bill slots, RJ11 auto printer trigger', pack: '1 Unit', price: getZohoPrice('X10-CASH DRAWER', 45.00) }
+  ];
 
-      let y = 170;
+  function renderRows(items) {
+    return items.map((it, idx) => {
+      const priceIqd = Math.round(it.price * dollarRate);
+      const bg = idx % 2 === 1 ? 'background-color: #F8FAFC;' : 'background-color: #FFFFFF;';
+      return `
+        <tr style="${bg} border-bottom: 1px solid #E2E8F0;">
+          <td style="padding: 6px 10px; font-weight: 700; color: #0F172A; font-size: 11px;">
+            ${it.name}
+            <div style="font-size: 9px; color: #64748B; font-weight: 400;">SKU: ${it.sku}</div>
+          </td>
+          <td style="padding: 6px 10px; color: #475569; font-size: 10.5px;">${it.spec}</td>
+          <td style="padding: 6px 10px; color: #334155; font-size: 10px; text-align: center;">${it.pack}</td>
+          <td style="padding: 6px 10px; color: #16A34A; font-weight: 600; font-size: 9.5px; text-align: center;">In Stock</td>
+          <td style="padding: 6px 10px; color: #1E40AF; font-weight: 700; font-size: 11.5px; text-align: right;">$${it.price.toFixed(2)}</td>
+          <td style="padding: 6px 10px; color: #0F172A; font-weight: 700; font-size: 11px; text-align: right;">${priceIqd.toLocaleString()} IQD</td>
+        </tr>
+      `;
+    }).join('');
+  }
 
-      function renderSectionHeader(title, color = '#2B6CB0') {
-        doc.rect(40, y, 515, 22).fill(color);
-        doc.fillColor('#FFFFFF').fontSize(11).font('Helvetica-Bold').text(title, 50, y + 6);
-        y += 28;
-
-        // Table Header
-        doc.rect(40, y, 515, 18).fill('#E2E8F0');
-        doc.fillColor('#4A5568').fontSize(9).font('Helvetica-Bold');
-        doc.text('Product Name / Model', 50, y + 5);
-        doc.text('Specifications / Packaging', 240, y + 5);
-        doc.text('Unit Price ($)', 390, y + 5);
-        doc.text('Price (IQD)', 465, y + 5);
-        y += 22;
-      }
-
-      function renderRow(name, specs, priceUsd, isAlt = false) {
-        if (isAlt) {
-          doc.rect(40, y - 2, 515, 18).fill('#F7FAFC');
-        }
-        const priceIqd = Math.round(priceUsd * dollarRate);
-        doc.fillColor('#1A202C').fontSize(9).font('Helvetica-Bold').text(name, 50, y + 2);
-        doc.font('Helvetica').fillColor('#4A5568').text(specs, 240, y + 2);
-        doc.fillColor('#2B6CB0').font('Helvetica-Bold').text(`$${priceUsd.toFixed(2)}`, 390, y + 2);
-        doc.fillColor('#2D3748').text(`${priceIqd.toLocaleString()} د.ع`, 465, y + 2);
-        y += 18;
-      }
-
-      // Section 1: Thermal Paper Rolls
-      renderSectionHeader('1. PANDA THERMAL PAPER ROLLS (HIGH QUALITY)');
-      renderRow('Paper / 80*80Mtr Panda', '80x80mm Thermal, 50 Rolls/Carton', getZohoPrice('8080P', 0.86), false);
-      renderRow('Paper / 80*19Mtr Panda', '80x19mm Thermal, 100 Rolls/Carton', getZohoPrice('PaperRoll-Panda', 0.65), true);
-      renderRow('Paper / 57*19Mtr Panda', '57x19mm Taxi & POS, 100 Rolls/Carton', getZohoPrice('Paper Roll Panda', 0.40), false);
-      y += 8;
-
-      // Section 2: Printers
-      renderSectionHeader('2. RECEIPT & BARCODE PRINTERS');
-      renderRow('Receipt Printer Novex 8370', '260mm/s Fast, Auto-Cutter, LAN + USB', getZohoPrice('Novex-8370', 53.00), false);
-      renderRow('Zywell 310 Heavy Duty', 'Industrial POS Printer, LAN+USB+Serial', getZohoPrice('zywell 310', 95.00), true);
-      renderRow('Van Gold VG80 Label Printer', 'Thermal Barcode & Shelf Label Printer', getZohoPrice('Label Printer- VG80', 95.00), false);
-      renderRow('Zebra ZD230 Label Printer', 'Original Zebra Heavy Duty Desktop', getZohoPrice('ZEBRA-ZD230', 175.00), true);
-      renderRow('PT-210 Portable Bluetooth', 'Portable 58mm Mobile Receipt Printer', getZohoPrice('PT-210', 37.00), false);
-      y += 8;
-
-      // Section 3: Barcode Scanners & Cash Drawers
-      renderSectionHeader('3. BARCODE SCANNERS & CASH DRAWERS');
-      renderRow('Henex High Speed Wired', '1D/2D QR Code Fast Reader, USB Cable', getZohoPrice('Henex-Wired', 50.00), false);
-      renderRow('Henex 2210 2D Wireless', 'Bluetooth & 2.4G Wireless, Long Battery', getZohoPrice('Henex-2210', 75.00), true);
-      renderRow('Honeywell Orbit 7120', 'Hands-Free Omnidirectional Desktop Scanner', getZohoPrice('HONEYWELL-ORBIT7120', 120.00), false);
-      renderRow('Automatic Cash Drawer (X10)', 'Heavy Metal, 5 Bill Slots, RJ11 Auto-open', getZohoPrice('X10-CASH DRAWER', 45.00), true);
-      y += 12;
-
-      // Section 4: Special Value Bundles
-      doc.rect(40, y, 515, 68).fill('#EBF8FF').stroke('#BEE3F8');
-      doc.fillColor('#2B6CB0').fontSize(10).font('Helvetica-Bold')
-        .text('OFFICIAL BUNDLE PACKS (SPECIAL DISCOUNTED PACKS):', 55, y + 8);
-      
-      doc.fillColor('#2D3748').fontSize(9).font('Helvetica')
-        .text('• Supermarket Starter Pack: Novex Printer + Cash Drawer + Henex Scanner + 1 Carton Panda Paper -> $175', 55, y + 24)
-        .text('• Restaurant LAN Pack: Novex 8370 LAN Printer + 1 Carton Panda 80*80 Paper -> $89', 55, y + 38)
-        .text('• Bulk Paper Wholesale Deal: 10 Cartons Panda 80*80 (500 Rolls) with Free Erbil Delivery -> $425', 55, y + 52);
-      y += 78;
-
-      // Wholesale Note & QR Code Box
-      doc.rect(40, y, 360, 60).fill('#FFF5F5').stroke('#FEB2B2');
-      doc.fillColor('#C53030').fontSize(10).font('Helvetica-Bold')
-        .text('WHOLESALE ORDERS & BULK QUANTITIES:', 50, y + 10);
-      doc.fillColor('#4A5568').fontSize(8.5).font('Helvetica')
-        .text('For carton volumes and container wholesale pricing, please contact our sales office directly.', 50, y + 25)
-        .text('بۆ داواکردنی بڕی جوملە، تکایە ڕاستەوخۆ پەیوەندی بە بەشی فرۆشتنەوە بکەن.', 50, y + 38);
-
-      // Generate QR Code Image Buffer
-      const qrDataUrl = await QRCode.toDataURL('https://t.me/vertex_ads_bot', { margin: 1, width: 120 });
-      const base64Data = qrDataUrl.replace(/^data:image\/png;base64,/, '');
-      const qrBuffer = Buffer.from(base64Data, 'base64');
-
-      doc.image(qrBuffer, 435, y - 5, { width: 68, height: 68 });
-      doc.fillColor('#718096').fontSize(7.5).font('Helvetica')
-        .text('Scan for Telegram Store', 420, y + 65, { width: 100, align: 'center' });
-
-      // Footer
-      doc.fontSize(8).fillColor('#A0AEC0').text('Generated automatically by Vertex Business Automation System • Zoho Books Synced', 40, 780, { align: 'center', width: 515 });
-
-      doc.end();
-      stream.on('finish', () => resolve(outputPath));
-      stream.on('error', reject);
-
-    } catch (err) {
-      reject(err);
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vertex Company - Official Price List</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm 12mm 10mm 12mm;
     }
-  });
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, -apple-system, sans-serif;
+      color: #0F172A;
+      background: #FFFFFF;
+      font-size: 11px;
+      line-height: 1.35;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .header-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 8px;
+    }
+    .brand-title {
+      font-size: 22px;
+      font-weight: 900;
+      color: #0F172A;
+      letter-spacing: 0.5px;
+    }
+    .brand-sub {
+      font-size: 10px;
+      color: #475569;
+      font-weight: 600;
+      margin-top: 1px;
+    }
+    .rate-badge {
+      display: inline-block;
+      background: #EFF6FF;
+      border: 1px solid #BFDBFE;
+      border-radius: 4px;
+      padding: 6px 12px;
+      text-align: right;
+    }
+    .section-title {
+      background: #1E293B;
+      color: #FFFFFF;
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 5px 10px;
+      letter-spacing: 0.5px;
+      border-radius: 3px 3px 0 0;
+      margin-top: 6px;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #CBD5E1;
+      border-top: none;
+      margin-bottom: 6px;
+    }
+    .data-table th {
+      background: #F1F5F9;
+      color: #334155;
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border-bottom: 1px solid #CBD5E1;
+      letter-spacing: 0.3px;
+    }
+    .bundles-container {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+      margin-bottom: 6px;
+    }
+    .bundle-card {
+      flex: 1;
+      border: 1.5px solid #CBD5E1;
+      border-radius: 4px;
+      padding: 7px 9px;
+      background: #F8FAFC;
+    }
+    .bundle-header {
+      font-size: 10.5px;
+      font-weight: 800;
+      color: #1E3A8A;
+      border-bottom: 1px dashed #CBD5E1;
+      padding-bottom: 4px;
+      margin-bottom: 5px;
+    }
+    .bundle-price {
+      font-size: 14px;
+      font-weight: 900;
+      color: #047857;
+      margin-top: 4px;
+    }
+    .footer-bar {
+      margin-top: 6px;
+      border-top: 1.5px solid #E2E8F0;
+      padding-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .wholesale-box {
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
+      border-radius: 4px;
+      padding: 6px 10px;
+      flex: 1;
+      margin-right: 12px;
+    }
+    .qr-box {
+      text-align: center;
+      width: 85px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <table class="header-table">
+    <tr>
+      <td style="vertical-align: middle;">
+        <div class="brand-title">VERTEX COMPANY</div>
+        <div class="brand-sub">General Trading, POS Hardware & Thermal Paper Solutions</div>
+        <div style="font-size: 9.5px; color: #64748B; margin-top: 2px;">
+          Erbil, Kurdistan Region, Iraq | Tel / WhatsApp: 0750 000 0000 | Telegram: @vertex_ads_bot
+        </div>
+      </td>
+      <td style="text-align: right; vertical-align: middle;">
+        <div class="rate-badge">
+          <div style="font-size: 11px; font-weight: 800; color: #1E3A8A;">OFFICIAL DAILY PRICE SHEET</div>
+          <div style="font-size: 9px; color: #64748B; margin-top: 1px;">Date: ${todayDate} • Zoho Books Synced</div>
+          <div style="font-size: 10px; font-weight: 700; color: #047857; margin-top: 2px;">
+            Market Exchange Rate: $100 = ${(dollarRate * 100).toLocaleString()} IQD (1$ = ${dollarRate.toLocaleString()} IQD)
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Section 1: Paper -->
+  <div class="section-title">1. PANDA THERMAL RECEIPT PAPER ROLLS (AAA GRADE)</div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="text-align: left; width: 30%;">Product / Model</th>
+        <th style="text-align: left; width: 33%;">Specifications & Compatibility</th>
+        <th style="text-align: center; width: 14%;">Packaging</th>
+        <th style="text-align: center; width: 7%;">Status</th>
+        <th style="text-align: right; width: 8%;">Price ($)</th>
+        <th style="text-align: right; width: 8%;">Price (IQD)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${renderRows(paperItems)}
+    </tbody>
+  </table>
+
+  <!-- Section 2: Hardware -->
+  <div class="section-title">2. RECEIPT PRINTERS, BARCODE SCANNERS & CASH DRAWERS</div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="text-align: left; width: 30%;">Product / Model</th>
+        <th style="text-align: left; width: 33%;">Specifications & Compatibility</th>
+        <th style="text-align: center; width: 14%;">Packaging</th>
+        <th style="text-align: center; width: 7%;">Status</th>
+        <th style="text-align: right; width: 8%;">Price ($)</th>
+        <th style="text-align: right; width: 8%;">Price (IQD)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${renderRows(hardwareItems)}
+    </tbody>
+  </table>
+
+  <!-- Section 3: Bundles -->
+  <div class="section-title" style="background: #0F766E;">3. OFFICIAL BUNDLE PACKS (HIGH-VALUE SOLUTIONS)</div>
+  <div class="bundles-container">
+    <div class="bundle-card">
+      <div class="bundle-header">🏪 Supermarket Starter Pack</div>
+      <div style="font-size: 9px; color: #334155;">
+        • Novex 8370 Fast Auto-Cutter Printer<br>
+        • Heavy Metal Automatic Cash Drawer<br>
+        • Henex High-Speed Wired Scanner<br>
+        • <b>1 Full Carton Panda 80*80 Paper (50 Rolls)</b>
+      </div>
+      <div class="bundle-price">$175.00 <span style="font-size: 10px; font-weight: 600; color: #475569;">(${Math.round(175 * dollarRate).toLocaleString()} IQD)</span></div>
+      <div style="font-size: 8px; color: #64748B;">Retail Value: $191.00 (Save $16.00)</div>
+    </div>
+
+    <div class="bundle-card">
+      <div class="bundle-header">🍽 Restaurant / Cafe Pack</div>
+      <div style="font-size: 9px; color: #334155;">
+        • Novex 8370 Fast LAN Printer (Kitchen/Cashier)<br>
+        • High-speed auto cutter & sound alert<br>
+        • <b>1 Full Carton Panda 80*80 Paper (50 Rolls)</b><br>
+        • Heat & steam resistant hardware
+      </div>
+      <div class="bundle-price">$89.00 <span style="font-size: 10px; font-weight: 600; color: #475569;">(${Math.round(89 * dollarRate).toLocaleString()} IQD)</span></div>
+      <div style="font-size: 8px; color: #64748B;">Retail Value: $96.00 (Save $7.00)</div>
+    </div>
+
+    <div class="bundle-card">
+      <div class="bundle-header">📦 Wholesale Paper Volume Deal</div>
+      <div style="font-size: 9px; color: #334155;">
+        • <b>10 Cartons Panda 80*80 (500 Rolls Total)</b><br>
+        • Calculated at discounted $0.85 / roll<br>
+        • <b>Free Delivery</b> within Erbil city limits<br>
+        • Guaranteed Japanese dark thermal coating
+      </div>
+      <div class="bundle-price">$425.00 <span style="font-size: 10px; font-weight: 600; color: #475569;">(${Math.round(425 * dollarRate).toLocaleString()} IQD)</span></div>
+      <div style="font-size: 8px; color: #64748B;">Regular Price: $430.00 + Free Delivery</div>
+    </div>
+  </div>
+
+  <!-- Footer Area -->
+  <div class="footer-bar">
+    <div class="wholesale-box">
+      <div style="font-weight: 800; color: #991B1B; font-size: 10px; margin-bottom: 2px;">
+        WHOLESALE INQUIRIES & BULK CARTON ORDERS:
+      </div>
+      <div style="font-size: 9px; color: #4B5563;">
+        For commercial supply contracts, distributor partnership, and volume container pricing, please contact our wholesale sales department directly.
+      </div>
+      <div style="font-size: 9.5px; font-weight: 700; color: #1E293B; margin-top: 3px; direction: rtl; text-align: right;">
+        بۆ داواکردنی بڕی جوملە (کارتۆن و کۆنتێنەر)، تکایە ڕاستەوخۆ پەیوەندی بە بەشی فرۆشتنمانەوە بکەن بۆ وەرگرتنی داشکاندنی تایبەت.
+      </div>
+    </div>
+
+    <div class="qr-box">
+      <img src="${qrBase64}" style="width: 65px; height: 65px; border: 1px solid #CBD5E1; border-radius: 4px; display: block; margin: 0 auto;">
+      <div style="font-size: 7.5px; color: #64748B; font-weight: 600; margin-top: 2px;">Telegram Store<br>@vertex_ads_bot</div>
+    </div>
+  </div>
+
+</body>
+</html>
+  `;
+
+  return convertHtmlToPdf(html, outputPath);
 }
 
 module.exports = {
