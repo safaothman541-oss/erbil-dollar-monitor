@@ -212,6 +212,9 @@ class CustomerStorefront {
           { text: '🎁 ئۆفەر و پاکێجی تایبەت (داشکاندن)', callback_data: 'cat:bundles' }
         ],
         [
+          { text: '📄 داگرتنی لیستی فەرمیی نرخەکان (PDF)', callback_data: 'action:download_pdf' }
+        ],
+        [
           { text: '📞 پەیوەندی و ناونیشان', callback_data: 'cat:contact' },
           { text: '💵 نرخی دۆلاری بازاڕ', callback_data: 'cat:dollar' }
         ]

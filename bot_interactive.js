@@ -7,6 +7,8 @@ const salesWatcher = require('./modules/salesWatcher');
 const stockAuditor = require('./modules/stockAuditor');
 const dailyReporter = require('./modules/dailyReporter');
 const customerStorefront = require('./modules/customerStorefront');
+const pdfGenerator = require('./services/pdfPriceListGenerator');
+const stickerGenerator = require('./services/qrStickerGenerator');
 
 let lastUpdateId = 0;
 let lastEveningReportDate = null;
@@ -160,6 +162,20 @@ async function handleCallback(cb) {
     return;
   }
 
+  if (data === 'action:download_pdf') {
+    const pdfPath = require('path').join(__dirname, 'Vertex_Price_List.pdf');
+    try {
+      await pdfGenerator.generatePriceListPdf(pdfPath);
+      await telegramService.sendDocument(pdfPath, {
+        chatId,
+        caption: `📄 <b>لیستی فەرمیی نرخەکانی کۆمپانیای Vertex</b>\nبەپێی داتای ئەمڕۆی Zoho Books و نرخی بازاڕ (1$ = ${currentRate} د.ع).`
+      });
+    } catch (e) {
+      console.error('Error sending PDF:', e);
+    }
+    return;
+  }
+
   // Admin button to acknowledge order
   if (data.startsWith('zoho_create_order:')) {
     const orderId = data.replace('zoho_create_order:', '');
@@ -250,8 +266,51 @@ async function handleMessage(msg) {
       return;
     }
 
+    if (text.startsWith('/pdf')) {
+      const pdfPath = require('path').join(__dirname, 'Vertex_Price_List.pdf');
+      await pdfGenerator.generatePriceListPdf(pdfPath);
+      await telegramService.sendDocument(pdfPath, {
+        chatId,
+        caption: '📄 <b>فایلی PDFی فەرمیی نرخەکانی کۆمپانیای Vertex</b>\nبەپێی داتای ئەمڕۆی Zoho Books و نرخی بازاڕ.'
+      });
+      return;
+    }
+
+    if (text.startsWith('/sticker')) {
+      const stickerPath = require('path').join(__dirname, 'Carton_Sticker_Panda8080.pdf');
+      await stickerGenerator.generateCartonStickerPdf(stickerPath);
+      await telegramService.sendDocument(stickerPath, {
+        chatId,
+        caption: '🏷 <b>فایلی ستیکەری بارکۆدی سەر کارتۆن</b>\nقەبارەی 100x150 ملم بۆ چاپی سەر کارتۆن و داواکردنی خێرا.'
+      });
+      return;
+    }
+
     // Default in private: Show Customer Digital Storefront
     await customerStorefront.sendWelcome(chatId);
+    return;
+  }
+
+  // Handle /pdf and /sticker in group as well
+  if (text.startsWith('/pdf')) {
+    const pdfPath = require('path').join(__dirname, 'Vertex_Price_List.pdf');
+    await pdfGenerator.generatePriceListPdf(pdfPath);
+    await telegramService.sendDocument(pdfPath, {
+      chatId,
+      threadId,
+      caption: '📄 <b>فایلی PDFی فەرمیی نرخەکانی کۆمپانیای Vertex</b>'
+    });
+    return;
+  }
+
+  if (text.startsWith('/sticker')) {
+    const stickerPath = require('path').join(__dirname, 'Carton_Sticker_Panda8080.pdf');
+    await stickerGenerator.generateCartonStickerPdf(stickerPath);
+    await telegramService.sendDocument(stickerPath, {
+      chatId,
+      threadId,
+      caption: '🏷 <b>فایلی ستیکەری سەر کارتۆن بۆ چاپی ڕاستەوخۆ</b>'
+    });
     return;
   }
 

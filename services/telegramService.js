@@ -87,6 +87,31 @@ class TelegramService {
     });
   }
 
+  async sendDocument(filePath, options = {}) {
+    const fs = require('fs');
+    const path = require('path');
+    const formData = new FormData();
+    formData.append('chat_id', options.chatId || this.defaultChatId);
+    if (options.threadId) {
+      formData.append('message_thread_id', options.threadId);
+    }
+    if (options.caption) {
+      formData.append('caption', options.caption);
+      formData.append('parse_mode', options.parseMode || 'HTML');
+    }
+    const fileBytes = fs.readFileSync(filePath);
+    const fileName = path.basename(filePath);
+    formData.append('document', new Blob([fileBytes]), fileName);
+
+    const res = await fetch(`https://api.telegram.org/bot${this.token}/sendDocument`, {
+      method: 'POST',
+      body: formData
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error(`Telegram sendDocument error: ${json.description}`);
+    return json.result;
+  }
+
   getUpdates(offset = 0, timeout = 30) {
     return this.apiCall('getUpdates', {
       offset: offset,
