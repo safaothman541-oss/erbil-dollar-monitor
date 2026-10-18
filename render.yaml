@@ -3,6 +3,7 @@ services:
     name: vertex-whatsapp-hub
     env: node
     plan: free
+    region: frankfurt
     buildCommand: npm install
     startCommand: node services/whatsappServer.js
     envVars:
