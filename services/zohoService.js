@@ -171,8 +171,8 @@ class ZohoService {
   }
 
   async getTodayInvoices() {
-    const today = new Date().toISOString().split('T')[0];
-    const res = await this.request('GET', `/invoices?date=${today}&per_page=100`);
+    const baghdadToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date());
+    const res = await this.request('GET', `/invoices?date=${baghdadToday}&per_page=100`);
     return res.invoices || [];
   }
 

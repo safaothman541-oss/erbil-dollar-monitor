@@ -64,6 +64,14 @@ async function auditStock(options = {}) {
     return { outOfStock, lowStock };
   }
 
+  if (outOfStock.length === 0 && lowStock.length === 0) {
+    console.log('[StockAuditor] All inventory healthy, no alerts needed.');
+    state.lastOutCount = 0;
+    state.lastLowCount = 0;
+    saveState(state);
+    return { outOfStock, lowStock };
+  }
+
   let msg = `⚠️ <b>هۆشداریی کۆگا و مەخزەنی کۆمپانیا</b>\n\n`;
   
   if (lowStock.length > 0) {

@@ -46,7 +46,7 @@ class TelegramService {
     });
   }
 
-  sendMessage(text, options = {}) {
+  async sendMessage(text, options = {}) {
     const params = {
       chat_id: options.chatId || this.defaultChatId,
       text: text,
@@ -61,10 +61,20 @@ class TelegramService {
       params.reply_markup = options.replyMarkup;
     }
 
-    return this.apiCall('sendMessage', params);
+    try {
+      return await this.apiCall('sendMessage', params);
+    } catch (err) {
+      if (params.parse_mode === 'HTML' && err.message && err.message.includes("can't parse entities")) {
+        console.warn('[Telegram] HTML parse error detected, retrying as plain text:', err.message);
+        params.text = text.replace(/<[^>]*>/g, '');
+        delete params.parse_mode;
+        return await this.apiCall('sendMessage', params);
+      }
+      throw err;
+    }
   }
 
-  editMessageText(text, options = {}) {
+  async editMessageText(text, options = {}) {
     const params = {
       chat_id: options.chatId || this.defaultChatId,
       message_id: options.messageId,
@@ -76,7 +86,17 @@ class TelegramService {
       params.reply_markup = options.replyMarkup;
     }
 
-    return this.apiCall('editMessageText', params);
+    try {
+      return await this.apiCall('editMessageText', params);
+    } catch (err) {
+      if (params.parse_mode === 'HTML' && err.message && err.message.includes("can't parse entities")) {
+        console.warn('[Telegram] HTML parse error in edit, retrying as plain text:', err.message);
+        params.text = text.replace(/<[^>]*>/g, '');
+        delete params.parse_mode;
+        return await this.apiCall('editMessageText', params);
+      }
+      throw err;
+    }
   }
 
   answerCallbackQuery(callbackQueryId, text = '', showAlert = false) {

@@ -133,6 +133,10 @@ async function checkNewInvoices(options = {}) {
     }
   }
 
+  if (state.processedInvoiceIds.length > 500) {
+    state.processedInvoiceIds = state.processedInvoiceIds.slice(-500);
+  }
+
   saveState(state);
 }
 

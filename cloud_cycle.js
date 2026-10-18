@@ -85,12 +85,42 @@ async function runCloudCycle() {
   // 4. Evening Report Check (8:00 PM Baghdad Time = 17:00 UTC)
   try {
     const now = new Date();
-    const utcHours = now.getUTCHours();
-    const baghdadHours = (utcHours + 3) % 24;
+    const baghdadFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Baghdad',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const baghdadHour = parseInt(new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Baghdad',
+      hour: 'numeric',
+      hour12: false
+    }).format(now), 10);
+    const todayBaghdad = baghdadFormatter.format(now);
 
-    if (baghdadHours === 20 || process.argv.includes('--report')) {
-      console.log('[CloudCycle] Generating Evening Report...');
+    const reportStateFile = path.join(__dirname, 'state', 'report_state.json');
+    let lastReportDate = null;
+    if (fs.existsSync(reportStateFile)) {
+      try {
+        lastReportDate = JSON.parse(fs.readFileSync(reportStateFile, 'utf8')).lastReportDate;
+      } catch (e) {}
+    }
+
+    const isForce = process.argv.includes('--report') || process.argv.includes('--force-report');
+    if ((baghdadHour === 20 && lastReportDate !== todayBaghdad) || isForce) {
+      console.log(`[CloudCycle] Generating Evening Report for ${todayBaghdad}...`);
       await dailyReporter.generateDailyReport();
+
+      if (!fs.existsSync(path.dirname(reportStateFile))) {
+        fs.mkdirSync(path.dirname(reportStateFile), { recursive: true });
+      }
+      fs.writeFileSync(reportStateFile, JSON.stringify({
+        lastReportDate: todayBaghdad,
+        generatedAt: new Date().toISOString()
+      }, null, 2), 'utf8');
+      console.log('[CloudCycle] Evening Report successfully sent and state recorded.');
+    } else {
+      console.log(`[CloudCycle] Evening report check: baghdadHour=${baghdadHour}, alreadyReported=${lastReportDate === todayBaghdad}`);
     }
   } catch (err) {
     console.error('[CloudCycle] Daily report error:', err.message);

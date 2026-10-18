@@ -33,7 +33,7 @@ function convertHtmlToPdf(htmlContent, outputPath) {
   fs.writeFileSync(tempHtml, htmlContent, 'utf8');
 
   try {
-    const cmd = `"${browser}" --headless=new --disable-gpu --no-pdf-header-footer --print-to-pdf="${outputPath}" "file://${tempHtml.replace(/\\/g, '/')}"`;
+    const cmd = `"${browser}" --headless=new --disable-gpu --no-sandbox --disable-dev-shm-usage --no-pdf-header-footer --print-to-pdf="${outputPath}" "file://${tempHtml.replace(/\\/g, '/')}"`;
     execSync(cmd, { timeout: 30000, stdio: 'ignore' });
   } finally {
     try { fs.unlinkSync(tempHtml); } catch (e) {}
