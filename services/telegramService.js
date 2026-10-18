@@ -7,13 +7,14 @@ class TelegramService {
     this.defaultChatId = config.GROUP_CHAT_ID;
   }
 
-  apiCall(method, params) {
+  apiCall(method, params, timeoutMs = 40000) {
     return new Promise((resolve, reject) => {
       const payload = JSON.stringify(params);
       const req = https.request({
         hostname: 'api.telegram.org',
         path: `/bot${this.token}/${method}`,
         method: 'POST',
+        timeout: timeoutMs,
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(payload)
@@ -35,6 +36,10 @@ class TelegramService {
         });
       });
 
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Telegram request timeout'));
+      });
       req.on('error', reject);
       req.write(payload);
       req.end();

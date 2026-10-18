@@ -274,26 +274,36 @@ async function backgroundCycle() {
   }
 }
 
-async function pollUpdates() {
-  try {
-    const updates = await telegramService.getUpdates(lastUpdateId + 1, 20);
-    for (const update of updates) {
-      lastUpdateId = update.update_id;
+let isPollingActive = true;
 
-      if (update.callback_query) {
-        await handleCallback(update.callback_query);
-      } else if (update.message) {
-        await handleMessage(update.message);
+async function runPollingLoop() {
+  while (isPollingActive) {
+    try {
+      const updates = await telegramService.getUpdates(lastUpdateId + 1, 15);
+      if (Array.isArray(updates)) {
+        for (const update of updates) {
+          lastUpdateId = update.update_id;
+
+          if (update.callback_query) {
+            await handleCallback(update.callback_query).catch(e => console.error('Callback error:', e.message));
+          } else if (update.message) {
+            await handleMessage(update.message).catch(e => console.error('Message error:', e.message));
+          }
+        }
+      }
+    } catch (err) {
+      const msg = err.message || '';
+      if (msg.includes('Conflict')) {
+        console.log('[PollLoop] Waiting 5s for existing connection to close...');
+        await new Promise(r => setTimeout(r, 5000));
+      } else if (!msg.includes('timeout') && !msg.includes('ETIMEDOUT')) {
+        console.error('[PollLoop] Error:', msg);
+        await new Promise(r => setTimeout(r, 3000));
       }
     }
-  } catch (err) {
-    if (!err.message.includes('ETIMEDOUT') && !err.message.includes('ECONNRESET')) {
-      console.error('[PollUpdates] Error:', err.message);
-    }
+    // Small delay between polls
+    await new Promise(r => setTimeout(r, 200));
   }
-
-  // Continue long polling
-  setTimeout(pollUpdates, 500);
 }
 
 async function start() {
@@ -314,8 +324,8 @@ async function start() {
     console.error('Failed to post initial menu:', e.message);
   }
 
-  // Start polling
-  pollUpdates();
+  // Start sequential polling loop
+  runPollingLoop();
 
   // Run background cycle every 5 minutes
   setInterval(backgroundCycle, 5 * 60 * 1000);
