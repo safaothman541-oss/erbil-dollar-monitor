@@ -15,6 +15,8 @@ if (!BOT_TOKEN || !CHAT_ID) {
 
 function decodeHtml(html) {
   return html
+    .replace(/&#036;/g, '$')
+    .replace(/&#36;/g, '$')
     .replace(/&nbsp;/g, ' ')
     .replace(/&quot;/g, '"')
     .replace(/&amp;/g, '&')
@@ -26,7 +28,7 @@ function fetchChannel() {
   return new Promise((resolve, reject) => {
     const options = {
       hostname: 't.me',
-      path: '/s/azura_gold',
+      path: '/s/bazari_dolaraka',
       method: 'GET',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
@@ -83,7 +85,7 @@ function sendTelegramMessage(text) {
 }
 
 async function run() {
-  console.log(`[${new Date().toISOString()}] Checking azura_gold channel...`);
+  console.log(`[${new Date().toISOString()}] Checking bazari_dolaraka channel...`);
 
   try {
     const html = await fetchChannel();
@@ -99,18 +101,18 @@ async function run() {
       posts.push({ text, time });
     }
 
-    // Filter posts for dollar updates in Erbil
+    // Filter posts for dollar updates
     const dollarPosts = posts.filter(p => {
-      return (p.text.includes('هەولێر') && p.text.includes('دینار')) || p.text.includes('نرخی دۆلار');
+      return p.text.includes('100=') || p.text.includes('100 =') || (p.text.includes('100') && p.text.includes('دۆلار'));
     });
 
     if (dollarPosts.length === 0) {
-      console.log('No dollar posts found.');
+      console.log('No dollar rate posts found.');
       return;
     }
 
     const latest = dollarPosts[dollarPosts.length - 1];
-    console.log(`Latest post: "${latest.text}" (${latest.time})`);
+    console.log(`Latest rate post: "${latest.text}" (${latest.time})`);
 
     // Load last state
     let lastState = null;
@@ -131,10 +133,10 @@ async function run() {
       const options = { timeZone: 'Asia/Baghdad', hour12: true, hour: '2-digit', minute: '2-digit', year: 'numeric', month: '2-digit', day: '2-digit' };
       const localTimeStr = dateObj.toLocaleString('en-GB', options);
 
-      let msg = `🔔 <b>ئاگاداری نرخی دۆلار لە هەولێر</b>\n\n`;
+      let msg = `🔔 <b>ئاگاداری نرخی نوێی دۆلار</b>\n\n`;
       msg += `💵 <b>نرخ:</b> <code>${latest.text}</code>\n`;
-      msg += `⏰ <b>کاتی پۆست:</b> ${localTimeStr}\n`;
-      msg += `📢 <b>سەرچاوە:</b> کەناڵی ئازورا (@azura_gold)\n`;
+      msg += `⏰ <b>کاتی بازاڕ:</b> ${localTimeStr}\n`;
+      msg += `📢 <b>سەرچاوە:</b> کەناڵی بازاڕی دۆلارەکە (@bazari_dolaraka)\n`;
       msg += `🤖 <i>نێردراوە لە ڕێگەی vertex_ads_bot</i>`;
 
       await sendTelegramMessage(msg);
@@ -142,6 +144,7 @@ async function run() {
 
       // Save new state
       fs.writeFileSync(STATE_FILE, JSON.stringify({
+        channel: 'bazari_dolaraka',
         text: latest.text,
         time: latest.time,
         updated_at: new Date().toISOString()
