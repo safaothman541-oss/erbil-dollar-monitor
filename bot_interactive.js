@@ -9,6 +9,7 @@ const dailyReporter = require('./modules/dailyReporter');
 const customerStorefront = require('./modules/customerStorefront');
 const pdfGenerator = require('./services/pdfPriceListGenerator');
 const stickerGenerator = require('./services/qrStickerGenerator');
+const channelPublisher = require('./modules/channelPublisher');
 
 let lastUpdateId = 0;
 let lastEveningReportDate = null;
@@ -318,6 +319,21 @@ async function handleMessage(msg) {
       threadId,
       caption: '🏷 <b>فایلی ستیکەری سەر کارتۆن بۆ چاپی ڕاستەوخۆ</b>'
     });
+    return;
+  }
+
+  // Publish to public channel @vertexiqzone
+  if (text.startsWith('/publish_all')) {
+    await channelPublisher.publishAllShowcase();
+    await telegramService.sendMessage('🚀 <b>سەرجەم ٥ پۆستە سەرەکییەکە لە چەناڵی @vertexiqzone بڵاوکرانەوە.</b>', { chatId, threadId });
+    return;
+  }
+
+  if (text.startsWith('/publish') || text.startsWith('/post')) {
+    const market = await dollarScraper.getLatestMarketRate();
+    const currentRate = market && market.ratePerDollar ? market.ratePerDollar : 1684;
+    await channelPublisher.publishDailyPriceList(null, currentRate);
+    await telegramService.sendMessage('📄 <b>فایلی فەرمیی نرخی ئەمڕۆ لە چەناڵی @vertexiqzone بڵاوکرایەوە.</b>', { chatId, threadId });
     return;
   }
 

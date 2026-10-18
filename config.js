@@ -4,6 +4,7 @@ module.exports = {
   BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '8881714010:AAHSTD8KYcT_Mm4Kc-iUX4AOR-NAVzkH7rE',
   GROUP_CHAT_ID: process.env.TELEGRAM_GROUP_ID || '-1004485452111',
   ADMIN_USER_ID: process.env.TELEGRAM_CHAT_ID || '6558230965',
+  CHANNEL_ID: process.env.TELEGRAM_CHANNEL_ID || '@vertexiqzone',
 
   // Forum Topic Thread IDs in Vertex Company supergroup
   TOPICS: {

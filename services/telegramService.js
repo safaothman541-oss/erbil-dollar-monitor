@@ -119,6 +119,9 @@ class TelegramService {
       formData.append('caption', options.caption);
       formData.append('parse_mode', options.parseMode || 'HTML');
     }
+    if (options.replyMarkup) {
+      formData.append('reply_markup', JSON.stringify(options.replyMarkup));
+    }
     const fileBytes = fs.readFileSync(filePath);
     const fileName = path.basename(filePath);
     formData.append('document', new Blob([fileBytes]), fileName);
@@ -130,6 +133,13 @@ class TelegramService {
     const json = await res.json();
     if (!json.ok) throw new Error(`Telegram sendDocument error: ${json.description}`);
     return json.result;
+  }
+
+  pinChatMessage(chatId, messageId) {
+    return this.apiCall('pinChatMessage', {
+      chat_id: chatId,
+      message_id: messageId
+    });
   }
 
   getUpdates(offset = 0, timeout = 30) {
