@@ -145,18 +145,20 @@ async function checkNewInvoices(options = {}) {
         console.warn(`[SalesWatcher] Note: Customer WhatsApp dispatch skipped (${waCustErr.message})`);
       }
 
-      // 2. Send instant Admin Alert to Safa (0750 758 6992)
-      try {
-        const adminPhone = '9647507586992';
-        await whatsappService.sendKurdishInvoice(adminPhone, {
-          invoiceNumber: invoice.invoice_number,
-          customerName: `${invoice.customer_name || 'کڕیار'} (Admin Alert)`,
-          totalAmount: formattedTotal,
-          date: invoice.date
-        });
-        console.log(`[SalesWatcher] Dispatched WhatsApp admin alert to ${adminPhone}`);
-      } catch (waAdminErr) {
-        console.warn(`[SalesWatcher] Note: Admin WhatsApp alert skipped (${waAdminErr.message})`);
+      // 2. Send instant Admin Alerts to Safa & Team (0750 529 9118 & 0750 758 6992)
+      const adminPhones = config.WHATSAPP.ADMIN_PHONES || ['9647505299118', '9647507586992'];
+      for (const adminPhone of adminPhones) {
+        try {
+          await whatsappService.sendKurdishInvoice(adminPhone, {
+            invoiceNumber: invoice.invoice_number,
+            customerName: `${invoice.customer_name || 'کڕیار'} (Admin Alert)`,
+            totalAmount: formattedTotal,
+            date: invoice.date
+          });
+          console.log(`[SalesWatcher] Dispatched WhatsApp admin alert to ${adminPhone}`);
+        } catch (waAdminErr) {
+          console.warn(`[SalesWatcher] Note: Admin WhatsApp alert skipped for ${adminPhone} (${waAdminErr.message})`);
+        }
       }
 
       if (!state.processedInvoiceIds.includes(invoice.invoice_id)) {
