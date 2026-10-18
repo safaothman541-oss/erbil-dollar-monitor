@@ -7,6 +7,7 @@ const telegramService = require('./services/telegramService');
 const salesWatcher = require('./modules/salesWatcher');
 const stockAuditor = require('./modules/stockAuditor');
 const dailyReporter = require('./modules/dailyReporter');
+const channelPublisher = require('./modules/channelPublisher');
 
 async function runCloudCycle() {
   console.log(`[${new Date().toISOString()}] === Running Vertex Cloud Cycle on GitHub Actions Server ===`);
@@ -124,6 +125,53 @@ async function runCloudCycle() {
     }
   } catch (err) {
     console.error('[CloudCycle] Daily report error:', err.message);
+  }
+
+  // 5. Daily Channel Price Sheet Publication (Automated once a day in English, no stock)
+  try {
+    const channelStateFile = path.join(__dirname, 'state', 'channel_state.json');
+    let lastChannelDate = null;
+    if (fs.existsSync(channelStateFile)) {
+      try {
+        lastChannelDate = JSON.parse(fs.readFileSync(channelStateFile, 'utf8')).lastPriceListDate;
+      } catch (e) {}
+    }
+
+    const now = new Date();
+    const baghdadFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Baghdad',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const baghdadHour = parseInt(new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Baghdad',
+      hour: 'numeric',
+      hour12: false
+    }).format(now), 10);
+    const todayBaghdad = baghdadFormatter.format(now);
+
+    const isPublishRequested = process.argv.includes('--publish') || (baghdadHour >= 9 && baghdadHour <= 12 && lastChannelDate !== todayBaghdad);
+
+    if (isPublishRequested) {
+      console.log(`[CloudCycle] Publishing daily English price list to channel for ${todayBaghdad}...`);
+      const market = await dollarScraper.getLatestMarketRate();
+      const currentRate = market && market.ratePerDollar ? market.ratePerDollar : 1684;
+      await channelPublisher.publishDailyPriceList(config.CHANNEL_ID, currentRate);
+
+      if (!fs.existsSync(path.dirname(channelStateFile))) {
+        fs.mkdirSync(path.dirname(channelStateFile), { recursive: true });
+      }
+      fs.writeFileSync(channelStateFile, JSON.stringify({
+        lastPriceListDate: todayBaghdad,
+        publishedAt: new Date().toISOString()
+      }, null, 2), 'utf8');
+      console.log('[CloudCycle] Daily price list published to channel and recorded.');
+    } else {
+      console.log(`[CloudCycle] Channel price sheet check: baghdadHour=${baghdadHour}, alreadyPublished=${lastChannelDate === todayBaghdad}`);
+    }
+  } catch (err) {
+    console.error('[CloudCycle] Channel publication error:', err.message);
   }
 
   console.log(`[${new Date().toISOString()}] === Vertex Cloud Cycle Completed Successfully ===`);

@@ -25,7 +25,7 @@ async function generatePriceListPdf(outputPath) {
   };
 
   const todayDate = new Date().toLocaleDateString('en-GB');
-  const qrBase64 = await QRCode.toDataURL('https://t.me/vertex_ads_bot', { margin: 1, width: 220 });
+  const qrBase64 = await QRCode.toDataURL('https://t.me/vertexiqzone', { margin: 1, width: 220 });
 
   // Product Data
   const paperItems = [
@@ -58,7 +58,6 @@ async function generatePriceListPdf(outputPath) {
           </td>
           <td style="padding: 6px 10px; color: #475569; font-size: 10.5px;">${it.spec}</td>
           <td style="padding: 6px 10px; color: #334155; font-size: 10px; text-align: center;">${it.pack}</td>
-          <td style="padding: 6px 10px; color: #16A34A; font-weight: 600; font-size: 9.5px; text-align: center;">In Stock</td>
           <td style="padding: 6px 10px; color: #1E40AF; font-weight: 700; font-size: 11.5px; text-align: right;">$${it.price.toFixed(2)}</td>
           <td style="padding: 6px 10px; color: #0F172A; font-weight: 700; font-size: 11px; text-align: right;">${priceIqd.toLocaleString()} IQD</td>
         </tr>
@@ -224,10 +223,9 @@ async function generatePriceListPdf(outputPath) {
   <table class="data-table">
     <thead>
       <tr>
-        <th style="text-align: left; width: 30%;">Product / Model</th>
-        <th style="text-align: left; width: 33%;">Specifications & Compatibility</th>
+        <th style="text-align: left; width: 32%;">Product / Model</th>
+        <th style="text-align: left; width: 38%;">Specifications & Compatibility</th>
         <th style="text-align: center; width: 14%;">Packaging</th>
-        <th style="text-align: center; width: 7%;">Status</th>
         <th style="text-align: right; width: 8%;">Price ($)</th>
         <th style="text-align: right; width: 8%;">Price (IQD)</th>
       </tr>
@@ -242,10 +240,9 @@ async function generatePriceListPdf(outputPath) {
   <table class="data-table">
     <thead>
       <tr>
-        <th style="text-align: left; width: 30%;">Product / Model</th>
-        <th style="text-align: left; width: 33%;">Specifications & Compatibility</th>
+        <th style="text-align: left; width: 32%;">Product / Model</th>
+        <th style="text-align: left; width: 38%;">Specifications & Compatibility</th>
         <th style="text-align: center; width: 14%;">Packaging</th>
-        <th style="text-align: center; width: 7%;">Status</th>
         <th style="text-align: right; width: 8%;">Price ($)</th>
         <th style="text-align: right; width: 8%;">Price (IQD)</th>
       </tr>
@@ -304,14 +301,14 @@ async function generatePriceListPdf(outputPath) {
       <div style="font-size: 9px; color: #4B5563;">
         For commercial supply and volume carton pricing: <span dir="ltr"><b>+964 750 758 6992</b></span> &bull; <b>vertex1.tech</b>
       </div>
-      <div style="font-size: 9.5px; font-weight: 700; color: #1E293B; margin-top: 3px; direction: rtl; text-align: right;">
-        بۆ داواکردنی بڕی جوملە (کارتۆن و ژمارەی زۆر): پەیوەندی بە <span dir="ltr"><b>0750 758 6992</b></span> یان سەردانی <b>vertex1.tech</b> بکەن.
+      <div style="font-size: 9px; color: #1E293B; font-weight: 600; margin-top: 3px;">
+        Direct sales desk & WhatsApp: <span dir="ltr"><b>+964 750 758 6992</b></span> &bull; Official website: <b>vertex1.tech</b>
       </div>
     </div>
 
     <div class="qr-box">
       <img src="${qrBase64}" style="width: 65px; height: 65px; border: 1px solid #CBD5E1; border-radius: 4px; display: block; margin: 0 auto;">
-      <div style="font-size: 7.5px; color: #64748B; font-weight: 600; margin-top: 2px;">Telegram Store<br>@vertex_ads_bot</div>
+      <div style="font-size: 7.5px; color: #64748B; font-weight: 600; margin-top: 2px;">Official Channel<br>@vertexiqzone</div>
     </div>
   </div>
 

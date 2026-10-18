@@ -172,7 +172,7 @@ class ChannelPublisher {
     });
   }
 
-  // 5. Daily Official PDF Price Sheet Post
+  // 5. Daily Official PDF Price Sheet Post (English Only, No Stock)
   async publishDailyPriceList(targetChat = null, currentRate = 1684) {
     const chat = targetChat || this.channelId;
     const pdfPath = path.join(__dirname, '..', 'Vertex_Price_List.pdf');
@@ -180,17 +180,30 @@ class ChannelPublisher {
     await pdfGenerator.generatePriceListPdf(pdfPath);
 
     const todayDate = new Date().toLocaleDateString('en-GB');
-    let caption = `📄 <b>لیستی نرخی کاڵاکانی کۆمپانیای VERTEX</b>\n\n`;
-    caption += `📅 <b>بەروار:</b> ${todayDate}\n`;
-    caption += `💵 <b>نرخی دۆلار:</b> 1$ = <b>${currentRate.toLocaleString()} دینار</b> ($100 = ${(currentRate * 100).toLocaleString()} د.ع)\n`;
-    caption += `🔄 نرخەکان بەپێی سیستەمی <b>Zoho Books</b> نوێکراونەتەوە.\n\n`;
-    caption += `🌐 <b>وێبسایت:</b> ${LTR}vertex1.tech &nbsp;|&nbsp; 📞 <b>تەلەفۆن:</b> <code>${LTR}0750 758 6992</code>\n`;
-    caption += `<i>فایلی PDFی هاوپێچکراو داگرە بۆ بینینی هەموو کاڵاکان.</i>`;
+    let caption = `📄 <b>VERTEX COMPANY - OFFICIAL DAILY PRICE SHEET</b>\n\n`;
+    caption += `📅 <b>Date:</b> ${todayDate}\n`;
+    caption += `💵 <b>Market Exchange Rate:</b> $100 = <b>${(currentRate * 100).toLocaleString()} IQD</b> (1$ = ${currentRate.toLocaleString()} IQD)\n`;
+    caption += `🔄 Live Zoho Books pricing synchronized.\n\n`;
+    caption += `🌐 <b>Website:</b> <a href="https://vertex1.tech">vertex1.tech</a>\n`;
+    caption += `📞 <b>Direct Inquiries:</b> <code>+964 750 758 6992</code>\n\n`;
+    caption += `<i>Download the attached PDF document for complete models and pricing.</i>`;
+
+    const englishButtons = {
+      inline_keyboard: [
+        [
+          { text: '💬 Order via WhatsApp', url: 'https://wa.me/9647507586992?text=Hello%2C%20I%20would%20like%20to%20inquire%20about%20Vertex%20products.' },
+          { text: '📞 Call: +964 750 758 6992', url: 'https://wa.me/9647507586992' }
+        ],
+        [
+          { text: '🌐 Official Website (vertex1.tech)', url: 'https://vertex1.tech' }
+        ]
+      ]
+    };
 
     return telegramService.sendDocument(pdfPath, {
       chatId: chat,
       caption: caption,
-      replyMarkup: this.getChannelButtons('لیستی نرخەکان')
+      replyMarkup: englishButtons
     });
   }
 
