@@ -734,6 +734,14 @@ class WhatsAppBaileys {
       res.end('Not Found');
     });
 
+    this.httpServer.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.warn(`[Baileys Server] Port ${this.port} is currently in use. HTTP dashboard will be disabled, but WhatsApp Bot is fully active and answering messages!`);
+      } else {
+        console.error('[Baileys Server] HTTP server error:', err.message);
+      }
+    });
+
     this.httpServer.listen(this.port, () => {
       console.log(`[Baileys Server] Vertex Linked WhatsApp Hub running on port ${this.port}`);
       console.log(`[Baileys Server] Open http://localhost:${this.port} to view and scan QR code.`);

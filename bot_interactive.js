@@ -10,7 +10,7 @@ const customerStorefront = require('./modules/customerStorefront');
 const pdfGenerator = require('./services/pdfPriceListGenerator');
 const stickerGenerator = require('./services/qrStickerGenerator');
 const channelPublisher = require('./modules/channelPublisher');
-const whatsappServer = require('./services/whatsappServer');
+const whatsappBaileys = require('./services/whatsappBaileys');
 const whatsappService = require('./services/whatsappService');
 
 let lastUpdateId = 0;
@@ -528,11 +528,11 @@ async function start() {
     console.error('Failed to post initial menu:', e.message);
   }
 
-  // Start WhatsApp Cloud Hub Server
+  // Start WhatsApp Linked Bot (0751 949 6848)
   try {
-    whatsappServer.start();
+    whatsappBaileys.start();
   } catch (waErr) {
-    console.error('Failed to start WhatsApp Server:', waErr.message);
+    console.error('Failed to start WhatsApp Baileys:', waErr.message);
   }
 
   // Start sequential polling loop
