@@ -769,6 +769,20 @@ class WhatsAppBaileys {
         }
       }
 
+      // API: Prepare Nightly Queue
+      if (pathname === '/api/outreach/prepare') {
+        try {
+          const dailyOutreach = require('../modules/dailyOutreach');
+          dailyOutreach.prepareNightlyQueue(100).catch(console.error);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ success: true, message: 'Queue preparation started in background.' }));
+        } catch (e) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: e.message }));
+        }
+      }
+
+
       // API: Trigger Outreach Batch
       if (pathname === '/api/outreach/trigger' && req.method === 'POST') {
         try {
