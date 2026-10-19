@@ -3,12 +3,8 @@ services:
     name: vertex-hub-bot
     env: docker
     dockerfilePath: Dockerfile
-    plan: starter
+    plan: free
     region: frankfurt
-    disk:
-      name: vertex-data
-      mountPath: /app/state
-      sizeGB: 1
     envVars:
       - key: PORT
         value: 3000
