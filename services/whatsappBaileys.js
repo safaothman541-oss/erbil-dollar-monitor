@@ -382,6 +382,15 @@ class WhatsAppBaileys {
         threadId: config.TOPICS.SALES
       }).catch(() => {});
 
+      // Track in 30-day automatic re-order replenishment cycle
+      try {
+        const reorderCycle = require('../modules/reorderCycle');
+        const dailyOutreach = require('../modules/dailyOutreach');
+        const lead = dailyOutreach.isOutreachRecipient(fromPhone);
+        const shopName = lead ? lead.name : 'کڕیاری واتسئاپ';
+        reorderCycle.recordOrder(fromPhone, shopName);
+      } catch (_) {}
+
       session.lastInteractionAt = now;
       return;
     }

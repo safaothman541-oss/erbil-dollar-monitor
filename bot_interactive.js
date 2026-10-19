@@ -27,6 +27,7 @@ let lastEveningReportDate = null;
 let lastPriceListDate = null;
 let lastOutreachDate = null;
 let lastNightlyQueueDate = null;
+let lastReorderDate = null;
 
 
 
@@ -493,7 +494,72 @@ async function handleMessage(msg) {
   if (text.startsWith('/resume_outreach') || text.startsWith('/approve_outreach')) {
     dailyOutreach.queue.status = 'approved';
     dailyOutreach.saveQueue();
-    await telegramService.sendMessage('▶️ <b>ناردنی نامەکانی بەیانیان چالاککرایەوە (Approved).</b>\nسبەینێ سەعات ٩:٠٠ی بەیانی دەستپێدەکات.', { chatId, threadId });
+    await telegramService.sendMessage('▶️ <b>ناردنی نامەکانی بەیانیان چالاککرایەوە (Approved).</b>\nسبەینێ سەعات ١٠:٣٠ی پێشنیوەڕۆ دەستپێدەکات.', { chatId, threadId });
+    return;
+  }
+
+  // --- Re-Order Replenishment Automation Commands ---
+  if (text.startsWith('/reorder')) {
+    const reorderCycle = require('./modules/reorderCycle');
+
+    if (text.startsWith('/reorder_check')) {
+      await telegramService.sendMessage('⏳ <b>پشکنینی کڕیارانی شایستە بۆ پڕکردنەوەی ٣٠ ڕۆژەی وەرەقە...</b>', { chatId, threadId });
+      const res = await reorderCycle.checkAndSendReorders();
+      if (res.success) {
+        await telegramService.sendMessage(`✅ <b>پشکنین تەواو بوو:</b> ${res.count} نامەی بیرخستنەوەی ٣٠ ڕۆژە بە سەرکەوتوویی نێردرا!`, { chatId, threadId });
+      } else {
+        await telegramService.sendMessage(`⚠️ هۆشداری: ${res.reason || res.message}`, { chatId, threadId });
+      }
+      return;
+    }
+
+    if (text.startsWith('/reorder_add')) {
+      const parts = text.split(/\s+/);
+      const phone = parts[1];
+      const name = parts[2] || 'مارکێتی بەڕێز';
+      const date = parts[3] || null;
+      if (!phone) {
+        await telegramService.sendMessage('⚠️ تکایە ژمارەکە بنووسە:\n<code>/reorder_add 0750xxxxxxx [ناوی مارکێت] [2026-09-20]</code>', { chatId, threadId });
+        return;
+      }
+      const added = reorderCycle.recordOrder(phone, name, date);
+      if (added) {
+        await telegramService.sendMessage(`✅ <b>«${added.name}» (${added.phone})</b> بۆ سووڕی پڕکردنەوەی ٣٠ ڕۆژە تۆمارکرا.\n• بەرواری کڕین: ${added.lastOrderDate}\n• ڕۆژانی تێپەڕبوو: ${reorderCycle.getDaysElapsed(added.lastOrderDate)} ڕۆژ`, { chatId, threadId });
+      } else {
+        await telegramService.sendMessage('❌ نەتوانرا زیاد بکرێت (ژمارەکە پارێزراوە یان هەڵەیە).', { chatId, threadId });
+      }
+      return;
+    }
+
+    if (text.startsWith('/reorder_pause')) {
+      const parts = text.split(/\s+/);
+      const phone = reorderCycle.normalizePhone(parts[1]);
+      if (phone && reorderCycle.customers[phone]) {
+        reorderCycle.customers[phone].status = 'paused';
+        reorderCycle.saveCustomers();
+        await telegramService.sendMessage(`⏸ پەیامی ٣٠ ڕۆژە بۆ <b>«${reorderCycle.customers[phone].name}» (${phone})</b> ڕاگیرا.`, { chatId, threadId });
+      } else {
+        await telegramService.sendMessage('⚠️ ئەم ژمارەیە لە سیستەمی پڕکردنەوە نەدۆزرایەوە.', { chatId, threadId });
+      }
+      return;
+    }
+
+    if (text.startsWith('/reorder_resume')) {
+      const parts = text.split(/\s+/);
+      const phone = reorderCycle.normalizePhone(parts[1]);
+      if (phone && reorderCycle.customers[phone]) {
+        reorderCycle.customers[phone].status = 'active';
+        reorderCycle.saveCustomers();
+        await telegramService.sendMessage(`▶️ پەیامی ٣٠ ڕۆژە بۆ <b>«${reorderCycle.customers[phone].name}» (${phone})</b> کاراکرانەوە.`, { chatId, threadId });
+      } else {
+        await telegramService.sendMessage('⚠️ ئەم ژمارەیە لە سیستەمی پڕکردنەوە نەدۆزرایەوە.', { chatId, threadId });
+      }
+      return;
+    }
+
+    // Default: Show Summary Card
+    const summary = reorderCycle.getTelegramSummary();
+    await telegramService.sendMessage(summary, { chatId, threadId: threadId || config.TOPICS.SALES });
     return;
   }
 
@@ -602,16 +668,26 @@ async function backgroundCycle() {
       lastPriceListDate = todayDateStr;
     }
 
-    // 5. Morning WhatsApp Daily Outreach check (9:00 AM Baghdad time)
-    if (baghdadHour === 9 && baghdadMinute < 15 && lastOutreachDate !== todayDateStr) {
-      console.log('[Background] Morning WhatsApp outreach time reached (09:00 Baghdad).');
+    // 5. Morning WhatsApp Daily Outreach check (10:30 AM Baghdad time - Golden Decision Window)
+    if (baghdadHour === 10 && baghdadMinute >= 30 && baghdadMinute < 45 && lastOutreachDate !== todayDateStr) {
+      console.log('[Background] Morning WhatsApp outreach time reached (10:30 AM Baghdad - Golden Peak Window).');
       lastOutreachDate = todayDateStr;
       dailyOutreach.executeMorningOutreach().catch(err => {
         console.error('[Background] Daily outreach error:', err.message);
       });
     }
 
-    // 6. Nightly Pre-Screening & Queue Preparation check (10:00 PM Baghdad time = 22:00)
+    // 6. 30-Day Customer Re-Order Replenishment Cycle (11:30 AM Baghdad time)
+    if (baghdadHour === 11 && baghdadMinute >= 30 && baghdadMinute < 45 && lastReorderDate !== todayDateStr) {
+      console.log('[Background] Running 30-day customer re-order replenishment check (11:30 AM Baghdad)...');
+      lastReorderDate = todayDateStr;
+      const reorderCycle = require('./modules/reorderCycle');
+      reorderCycle.checkAndSendReorders().catch(err => {
+        console.error('[Background] Re-order cycle error:', err.message);
+      });
+    }
+
+    // 7. Nightly Pre-Screening & Queue Preparation check (10:00 PM Baghdad time = 22:00)
     if (baghdadHour === 22 && baghdadMinute < 15 && lastNightlyQueueDate !== todayDateStr) {
       console.log('[Background] Nightly 10:00 PM WhatsApp pre-screening time reached.');
       lastNightlyQueueDate = todayDateStr;
@@ -685,6 +761,12 @@ async function start() {
 
   // Start sequential polling loop
   runPollingLoop();
+
+  // Seed Re-order replenishment tracker from Zoho clients
+  try {
+    const reorderCycle = require('./modules/reorderCycle');
+    reorderCycle.syncFromZohoClients();
+  } catch (e) {}
 
   // Run background cycle every 5 minutes
   setInterval(backgroundCycle, 5 * 60 * 1000);

@@ -1,0 +1,86 @@
+{
+  "updatedAt": "2026-10-19T18:52:01.996Z",
+  "totalCustomers": 8,
+  "customers": {
+    "9647513926226": {
+      "phone": "9647513926226",
+      "name": "Agrin Market",
+      "firstOrderDate": "2026-09-18",
+      "lastOrderDate": "2026-09-18",
+      "lastRemindedDate": null,
+      "reminderCount": 0,
+      "status": "active",
+      "invoiceNumber": null
+    },
+    "9647507285858": {
+      "phone": "9647507285858",
+      "name": "Paytakht Market",
+      "firstOrderDate": "2026-09-16",
+      "lastOrderDate": "2026-09-16",
+      "lastRemindedDate": null,
+      "reminderCount": 0,
+      "status": "active",
+      "invoiceNumber": null
+    },
+    "9647504602877": {
+      "phone": "9647504602877",
+      "name": "Ram",
+      "firstOrderDate": "2026-09-20",
+      "lastOrderDate": "2026-09-20",
+      "lastRemindedDate": null,
+      "reminderCount": 0,
+      "status": "active",
+      "invoiceNumber": null
+    },
+    "9647728621414": {
+      "phone": "9647728621414",
+      "name": "Sherman",
+      "firstOrderDate": "2026-09-24",
+      "lastOrderDate": "2026-09-24",
+      "lastRemindedDate": null,
+      "reminderCount": 0,
+      "status": "active",
+      "invoiceNumber": null
+    },
+    "9647501301415": {
+      "phone": "9647501301415",
+      "name": "Dilan",
+      "firstOrderDate": "2026-10-06",
+      "lastOrderDate": "2026-10-06",
+      "lastRemindedDate": null,
+      "reminderCount": 0,
+      "status": "active",
+      "invoiceNumber": null
+    },
+    "9647502908000": {
+      "phone": "9647502908000",
+      "name": "Proware",
+      "firstOrderDate": "2026-10-18",
+      "lastOrderDate": "2026-10-18",
+      "lastRemindedDate": null,
+      "reminderCount": 0,
+      "status": "active",
+      "invoiceNumber": null
+    },
+    "9647506902242": {
+      "phone": "9647506902242",
+      "name": "Nan W Nmak",
+      "firstOrderDate": "2026-09-15",
+      "lastOrderDate": "2026-09-15",
+      "lastRemindedDate": null,
+      "reminderCount": 0,
+      "status": "active",
+      "invoiceNumber": null
+    },
+    "9647501855860": {
+      "phone": "9647501855860",
+      "name": "TSB Smart Tech",
+      "firstOrderDate": "2026-10-01",
+      "lastOrderDate": "2026-10-01",
+      "lastRemindedDate": null,
+      "reminderCount": 0,
+      "status": "active",
+      "invoiceNumber": null
+    }
+  }
+}

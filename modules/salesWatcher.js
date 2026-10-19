@@ -133,6 +133,12 @@ async function checkNewInvoices(options = {}) {
       try {
         const customerPhone = await zohoService.getCustomerPhone(invoice.customer_id);
         if (customerPhone) {
+          // Record in 30-day automatic re-order replenishment tracker
+          try {
+            const reorderCycle = require('./reorderCycle');
+            reorderCycle.recordOrder(customerPhone, invoice.customer_name, invoice.date, invoice.invoice_number);
+          } catch (_) {}
+
           await whatsappService.sendKurdishInvoice(customerPhone, {
             invoiceNumber: invoice.invoice_number,
             customerName: invoice.customer_name || 'کڕیاری بەڕێز',
