@@ -173,6 +173,19 @@ class WhatsAppBaileys {
         console.warn('[Baileys] updateProfilePicture note:', e.message);
       }
 
+      // 3. Business Profile (Description, Address, Email, Websites)
+      try {
+        await this.sock.updateBussinesProfile({
+          description: 'کۆمپانیای بازرگانی گشتی VERTEX - دابینکردنی کاغەزی حەراری، پرینتەری پسوولە، بارکۆد سکانەر، کش دراوەر، تەرازووی دیجیتاڵ و سیستەمی تەواوی خاڵی فرۆش (POS) لە سەرانسەری عێراق.',
+          address: 'عێراق - هەولێر - شەقامی سەرەکی',
+          email: 'info@vertex1.tech',
+          websites: ['https://vertex1.tech', 'https://t.me/vertexiqzone']
+        });
+        console.log('✅ [Baileys] زانیاری فەرمی پرۆفایلی بزنس (وەسف، ناونیشان، ئیمەیڵ، ماڵپەڕ) بە سەرکەوتوویی دانرا.');
+      } catch (e) {
+        console.warn('[Baileys] updateBussinesProfile note:', e.message);
+      }
+
       this.profileConfigured = true;
       console.log('🌟 [Baileys] ناسنامەی فەرمی VERTEX لەسەر واتسئاپ جێبەجێکرا!');
       return { success: true };
