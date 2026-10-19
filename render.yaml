@@ -1,17 +1,14 @@
 services:
   - type: web
-    name: vertex-whatsapp-hub
-    env: node
-    plan: free
+    name: vertex-hub-bot
+    env: docker
+    dockerfilePath: Dockerfile
+    plan: starter
     region: frankfurt
-    buildCommand: npm install
-    startCommand: node services/whatsappServer.js
+    disk:
+      name: vertex-data
+      mountPath: /app/state
+      sizeGB: 1
     envVars:
-      - key: NODE_ENV
-        value: production
-      - key: WHATSAPP_VERIFY_TOKEN
-        value: VERTEX_SECURE_TOKEN_2026
-      - key: WHATSAPP_PHONE_ID
-        value: "1411075905419124"
-      - key: WHATSAPP_WABA_ID
-        value: "1072965435604572"
+      - key: PORT
+        value: 3000

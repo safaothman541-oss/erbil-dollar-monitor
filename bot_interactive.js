@@ -13,6 +13,14 @@ const channelPublisher = require('./modules/channelPublisher');
 const whatsappBaileys = require('./services/whatsappBaileys');
 const whatsappService = require('./services/whatsappService');
 
+// Global Crash Prevention Watchdogs
+process.on('uncaughtException', (err) => {
+  console.error('[Bot Crash Prevention] Uncaught Exception:', err.message || err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[Bot Crash Prevention] Unhandled Rejection:', reason?.message || reason);
+});
+
 let lastUpdateId = 0;
 let lastEveningReportDate = null;
 let lastPriceListDate = null;

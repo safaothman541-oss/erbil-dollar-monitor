@@ -8,6 +8,7 @@
     "force": "node monitor.js --force",
     "cycle": "node cloud_cycle.js",
     "bot": "node bot_interactive.js",
+    "watchdog": "node watchdog.js",
     "whatsapp": "node services/whatsappServer.js",
     "whatsapp:linked": "node services/whatsappBaileys.js"
   },
