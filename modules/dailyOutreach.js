@@ -166,19 +166,19 @@ class DailyOutreach {
     const shopName = lead.name && lead.name !== 'مارکێت / شوێنی بەڕێز' ? lead.name : 'مارکێت و دوکانی بەڕێزتان';
 
     let msg = `سڵاو و ڕێز لە بەڕێوەبەر و ستافی بەڕێزی ${shopName} 🌸\n`;
-    msg += `هیوادارین کار و کاسبیتان هەمیشە پڕ لە بەرەکەت و گەشەدا بێت.\n\n`;
+    msg += `هیوادارین کار و کاسبیتان هەمیشە پڕ لە بەرەکەت و لە گەشەی بەردەوامدا بێت.\n\n`;
 
-    msg += `ئێمە لە کۆمپانیای ڤێرتێکس (VERTEX) وەکو هاوبەش و دابینکەری سەرەکی کەرەستەکانی سیستەمی کاشێر و مارکێت لە کوردستان، پەیوەندیتان پێوە دەکەین تا وەک دابینکەرێکی متمانەپێکراو لە خزمەتتاندا بین:\n\n`;
+    msg += `ئێمە لە کۆمپانیای ڤێرتێکس (VERTEX) وەکو هاوبەش و دابینکەری سەرەکی کەرەستە و سیستەمی کاشێر و مارکێت لە هەولێر، پەیوەندیتان پێوە دەکەین تا بە بەرزترین کوالێتی و گونجاوترین نرخ لە خزمەتتاندا بین:\n\n`;
 
-    msg += `📄 وەرەقەی ڕەسیپت و ڕۆڵی کاغەز (Thermal Paper Rolls):\n`;
-    msg += `ئایا وەرەقەی کاشێرەکەت کەم ماوە یان پێویستیت پێیەتی؟ ئێمە بەرزترین کوالێتی وەرەقەی حەراری (Panda و براندە پلە یەکەکان) ڕاستەوخۆ دابین دەکەین بە بێ گیربوون، چاپی زۆر تۆخ و بە پارێزراوی.\n\n`;
+    msg += `📄 وەرەقەی ڕەسیپت و ڕۆڵی پسوولە (Thermal Paper Rolls):\n`;
+    msg += `ئایا وەرەقەی کاشێرەکەت کەم ماوە یان پێویستیت پێیەتی؟ ئێمە بەرزترین کوالێتی وەرەقەی حەراری دابین دەکەین بە چاپی زۆر تۆخ و ڕوون، بە تەواوی بێ گیربوون لەناو پرینتەردا، بە درێژی تەواو و بە نرخێکی زۆر گونجاو.\n\n`;
 
     msg += `🖥 ئامێرەکانی خاڵی فرۆشتن (POS Systems):\n`;
     msg += `ئایا پێویستیت بە نوێکردنەوە یان کڕینی ئامێری نوێ هەیە؟\n`;
-    msg += `(پرینتەری پسوولە، سکانەری بارکۆدی خێرا، کەش درۆوەر (سندوقی پارە)، مۆنیتەری دەستی، کۆمپیوتەری لەمس). هەمووی بە گەرەنتی ڕاستەقینە و کوالێتی بەرز بەردەستە.\n\n`;
+    msg += `(پرینتەری پسوولەی خێرا، سکانەری بارکۆدی خێرا، کەش درۆوەر (سندوقی پارە)، مۆنیتەری دەستی، کۆمپیوتەری لەمس). هەمووی بە گەرەنتی ڕاستەقینە و کوالێتی بەرز بەردەستە.\n\n`;
 
     msg += `🛠 چاککردنەوە و چارەسەری کێشەی ئامێرەکان:\n`;
-    msg += `ئەگەر هەر ئامێرێکت لە مارکێت/شوێنەکەتدا کێشەی تێدایە یان تێکچووە، تیمی ئەندازیاران و چاکسازی ئێمە دەتوانن لە کەمترین ماوەدا بۆتان چاک بکەنەوە.\n\n`;
+    msg += `ئەگەر هەر ئامێرێکت لە مارکێت/شوێنەکەتدا کێشەی تێدایە یان تێکچووە، تیمی ئەندازیاران و چاکسازی ئێمە دەتوانن لە کەمترین ماوەدا بۆتان چاک بکەنەوە و کێشەکانتان چارەسەر بکەن.\n\n`;
 
     msg += `💰 دەربارەی نرخەکان:\n`;
     msg += `ئەو نرخانەی لە پرایس لیستی ئێمەدا دیاریکراون نرخی تاکن (Retail). بۆ داواکاری بە بڕی زۆر و دابینکردنی بەردەوام بە نرخی کۆ (Wholesale)، داشکاندن و تەخفیفی زۆر تایبەتمان هەیە، دەتوانن بۆ نرخی کۆ ڕاستەوخۆ پەیوەندیمان پێوە بکەن.\n\n`;
@@ -207,7 +207,7 @@ class DailyOutreach {
     this.loadSentRegistry();
     this.loadZohoClients();
 
-    console.log(`[DailyOutreach] 🔍 Starting nightly WhatsApp pre-screening for ${targetCount} verified targets...`);
+    console.log(`[DailyOutreach] 🔍 Starting nightly WhatsApp pre-screening for ${targetCount} verified targets in Erbil...`);
 
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -271,7 +271,9 @@ class DailyOutreach {
         id: queueItems.length + 1,
         leadIndex: checkPointer - 1,
         name: lead.name,
-        city: lead.city,
+        city: 'هەولێر',
+        address: lead.address || '',
+        dist_km: lead.dist_km || 0,
         phone: clean,
         rawPhone: lead.rawPhone || lead.phone,
         waJid: waJid,
@@ -318,6 +320,7 @@ class DailyOutreach {
     const totalSentSoFar = Object.keys(this.sentRegistry || {}).length;
 
     let msg = `📋 <b>خشتەی ١٠٠ مارکێت و شوێنی ئامادەکراو بۆ سبەینێ (سەعات ٩:٠٠ی بەیانی) 🌅</b>\n\n`;
+    msg += `• <b>ناوچە:</b> شاری هەولێر (ڕیزبەندکراو بەپێی نزیکی لە قەڵات 🏰)\n`;
     msg += `• <b>بەرواری ناردن:</b> سبەینێ ${this.queue.date || 'ئەمڕۆ'}\n`;
     msg += `• <b>سەلامەتی و دژە دووبارە:</b> ١٠٠٪ پشکنراوە؛ هیچ ژمارەیەکی دووبارە یان کڕیاری کۆنی زۆهۆی تێدا نییە 🛡️\n`;
     msg += `• <b>کۆی ئامادەکراو:</b> ${enabledItems.length} شوێن`;
@@ -327,11 +330,12 @@ class DailyOutreach {
     msg += `\n• <b>کۆی گشتی کڕیارانی پێشوو:</b> ${totalSentSoFar} مارکێت\n`;
     msg += `• <b>دۆخی ناردن:</b> ${this.queue.status === 'paused' ? '⏸ ڕاگیراوە (Paused)' : '▶️ چالاکە و سەعات ٩ دەستپێدەکات'}\n\n`;
 
-    msg += `<b>نموونەی ١٠ مارکێتی یەکەمی لیستەکە:</b>\n`;
+    msg += `<b>نموونەی ١٠ مارکێتی یەکەمی لیستەکە (نزیکترین لە قەڵاتەوە):</b>\n`;
     const previewList = (this.queue.items || []).slice(0, 10);
     previewList.forEach((it, idx) => {
       const statusIcon = it.enabled ? '🟢' : '🔴 (لادراوە)';
-      msg += `${idx + 1}. ${statusIcon} <b>${it.name}</b> (${it.city}) - <code>${it.phone}</code>\n`;
+      const distStr = it.dist_km ? `${it.dist_km} کم لە قەڵاوە` : 'ناو هەولێر';
+      msg += `${idx + 1}. ${statusIcon} <b>${it.name}</b> (${distStr}) - <code>${it.phone}</code>\n`;
     });
 
     msg += `\n🎮 <b>دەستکاری و کۆنتڕۆڵی تەواو لە چاتەوە:</b>\n`;
@@ -359,6 +363,7 @@ class DailyOutreach {
       replyMarkup: keyboard
     }).catch(e => console.error('[DailyOutreach] Failed to post queue to Telegram:', e.message));
   }
+
 
   // Remove / Exclude a number from queue
   removeNumber(phoneInput) {
@@ -440,19 +445,21 @@ class DailyOutreach {
   // Generate full readable text file of queue for download
   generateQueueTextFile() {
     const filePath = path.join(config.STATE_DIR, 'outreach_targets_tomorrow.txt');
-    let text = `لیستی ١٠٠ شوێنی ئامادەکراو بۆ ناردنی نامەی واتسئاپ\n`;
+    let text = `لیستی ١٠٠ شوێنی ئامادەکراو لە هەولێر (ڕیزبەندکراو بەپێی نزیکی لە قەڵات)\n`;
     text += `بەروار: ${this.queue.date || 'سبەینێ'} | دۆخ: ${this.queue.status}\n`;
     text += `سیستەمی پاراستن: بێ ژمارەی دووبارە (Zero Duplicate Guaranteed)\n`;
     text += `========================================================\n\n`;
 
     (this.queue.items || []).forEach((it, idx) => {
       const stateStr = it.enabled ? '[چالاک]' : '[لادراوە]';
-      text += `${idx + 1}. ${stateStr} ${it.name} | شار: ${it.city} | مۆبایل: ${it.phone}\n`;
+      const distStr = it.dist_km ? `${it.dist_km} کم لە قەڵاوە` : 'هەولێر';
+      text += `${idx + 1}. ${stateStr} ${it.name} | دووری: ${distStr} | مۆبایل: ${it.phone}\n`;
     });
 
     fs.writeFileSync(filePath, text, 'utf8');
     return filePath;
   }
+
 
   // Execute the morning outreach (Called at 9:00 AM)
   async executeMorningOutreach(forced = false) {
