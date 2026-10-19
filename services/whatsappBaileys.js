@@ -29,6 +29,7 @@ class WhatsAppBaileys {
     this.connectedUser = null;
     this.customerSessions = new Map();
     this.httpServer = null;
+    this.profileConfigured = false;
   }
 
   getSession(phone) {
@@ -111,6 +112,11 @@ class WhatsAppBaileys {
         console.log(`📱 ژمارەی بەستراوە: ${this.connectedUser.id.split(':')[0]}`);
         console.log('🤖 بۆتەکە ۲٤ کاتژمێر چالاکە و وەڵامی هەموو کڕیارێک دەداتەوە.');
         console.log('============================================================\n');
+
+        // Automatically configure WhatsApp Business profile and identity
+        this.setupBusinessProfile().catch(err => {
+          console.warn('[Baileys] setupBusinessProfile background note:', err.message);
+        });
       }
     });
 
@@ -140,6 +146,40 @@ class WhatsAppBaileys {
         console.error('[Baileys] Error in messages.upsert:', err);
       }
     });
+  }
+
+  async setupBusinessProfile(force = false) {
+    if (this.profileConfigured && !force) return { success: true };
+    try {
+      console.log('[Baileys] ڕێکخستنی پرۆفایل و ناسنامەی فەرمی VERTEX...');
+
+      // 1. WhatsApp About Status
+      try {
+        await this.sock.updateProfileStatus('🏢 کۆمپانیای VERTEX بۆ کەرەستەی POS و مارکێت | 📞 0750 529 9118');
+        console.log('✅ [Baileys] نووسینی About لەسەر واتسئاپ دانرا.');
+      } catch (e) {
+        console.warn('[Baileys] updateProfileStatus note:', e.message);
+      }
+
+      // 2. Profile Picture
+      try {
+        const avatarPath = path.join(__dirname, '..', 'assets', 'vertex_avatar_square.jpg');
+        if (fs.existsSync(avatarPath)) {
+          const buf = fs.readFileSync(avatarPath);
+          await this.sock.updateProfilePicture(this.sock.user.id, buf);
+          console.log('✅ [Baileys] وێنەی پرۆفایلی لۆگۆی VERTEX دانرا.');
+        }
+      } catch (e) {
+        console.warn('[Baileys] updateProfilePicture note:', e.message);
+      }
+
+      this.profileConfigured = true;
+      console.log('🌟 [Baileys] ناسنامەی فەرمی VERTEX لەسەر واتسئاپ جێبەجێکرا!');
+      return { success: true };
+    } catch (err) {
+      console.warn('[Baileys] Error during business profile setup:', err.message);
+      return { success: false, error: err.message };
+    }
   }
 
   async handleCustomerMessage(remoteJid, text) {
@@ -389,16 +429,69 @@ class WhatsAppBaileys {
     }
 
     // -------------------------------------------------------------
+    // ORDERING / PURCHASING GUIDE
+    // -------------------------------------------------------------
+    if (lower.includes('ئۆردەر') || lower.includes('داواکاری') || lower.includes('کڕین') || lower.includes('حجز') || lower.includes('طلب') || lower.includes('شراء') || lower.includes('order')) {
+      let orderReply = `🛒 *داواکردنی کاڵا و تۆمارکردنی ئۆردەر*\n\n`;
+      orderReply += `سوپاس بۆ پەیوەندیکردنتان بە کۆمپانیای VERTEX! تکایە ئەم زانیارییانە لێرە بنووسە:\n\n`;
+      orderReply += `1️⃣ *ناوی کاڵای داواکراو و ژمارەی دانە* (نموونە: ١ کارتۆن کاغەزی پاندا)\n`;
+      orderReply += `2️⃣ *ناوی بەڕێزتان و ژمارەی مۆبایل*\n`;
+      orderReply += `3️⃣ *ناونیشانی تەواو* (شار، گەڕەک، نزیکترین شوێنی دیار)\n\n`;
+      orderReply += `🚗 *گەیاندن:*\n${DELIVERY_NOTE}\n\n`;
+      orderReply += `📞 تیمی فرۆشتنمان ڕاستەوخۆ پەیوەندیت پێوە دەکەن بۆ پشتڕاستکردنەوە:\n`;
+      orderReply += `• ${PHONE_1}\n`;
+      orderReply += `• ${PHONE_2}`;
+      await this.sock.sendMessage(remoteJid, { text: orderReply });
+      session.lastInteractionAt = now;
+      return;
+    }
+
+    // -------------------------------------------------------------
+    // DELIVERY & SHIPPING INQUIRY
+    // -------------------------------------------------------------
+    if (lower.includes('گەیاندن') || lower.includes('گواستنەوە') || lower.includes('شەحن') || lower.includes('توصيل') || lower.includes('شحن') || lower.includes('delivery')) {
+      let deliveryReply = `🚗 *خزمەتگوزاری گەیاندن و گواستنەوەی VERTEX*\n\n`;
+      deliveryReply += `• *شارەکان:* گەیاندن بەردەستە بۆ هەموو شار و شارۆچکەکانی عێراق و هەرێمی کوردستان (هەولێر، سلێمانی، دهۆک، کەرکووک، بەغدا و سەرجەم شارەکان).\n`;
+      deliveryReply += `• *تێبینی گرنگ:* گەیاندن بێ بەرامبەر نییە - بە کرێی گواستنەوەی ئاسایی و گونجاو بەپێی شارەکە حساب دەکرێت.\n`;
+      deliveryReply += `• *ماوەی گەیشتن:* ناو هەولێر هەمان ڕۆژ یان ڕۆژی دواتر؛ بۆ شارەکانی تر لە ماوەی ٢٤ بۆ ٤٨ کاتژمێردا دەگات.\n\n`;
+      deliveryReply += `📞 بەشی گەیاندن و فرۆشتن:\n`;
+      deliveryReply += `• ${PHONE_1}\n`;
+      deliveryReply += `• ${PHONE_2}`;
+      await this.sock.sendMessage(remoteJid, { text: deliveryReply });
+      session.lastInteractionAt = now;
+      return;
+    }
+
+    // -------------------------------------------------------------
+    // PDF PRICE LIST INQUIRY
+    // -------------------------------------------------------------
+    if (lower === 'pdf' || lower.includes('فایل') || lower.includes('لیستی pdf') || lower.includes('قائمة pdf')) {
+      const pdfPath = path.join(__dirname, '..', 'Vertex_Price_List.pdf');
+      if (fs.existsSync(pdfPath)) {
+        await this.sock.sendMessage(remoteJid, {
+          document: fs.readFileSync(pdfPath),
+          fileName: 'Vertex_POS_Price_List_2026.pdf',
+          mimetype: 'application/pdf',
+          caption: `📄 *لیستی فەرمی نرخەکانی کۆمپانیای VERTEX (PDF)*\n\nتەواوی ٤١ بەرهەم و کەرەستەکانی خاڵی فرۆش لەگەڵ وێنە و تایبەتمەندییەکان.\n🚗 ${DELIVERY_NOTE}\n📞 ${PHONE_1} | ${PHONE_2}`
+        });
+        session.lastInteractionAt = now;
+        return;
+      }
+    }
+
+    // -------------------------------------------------------------
     // 10. GREETINGS & FULL MAIN MENU
     // -------------------------------------------------------------
     const greetingKeywords = [
       'سڵاو', 'سلام', 'slaw', 'hello', 'hi', 'مرحبا', 'سلاو', 'salam',
       'salam alaikum', 'assalam', 'سەلام', 'سلام علیکم', 'السلام عليكم',
-      'slawe', 'سڵاو عەلەیکوم', 'چۆنی', 'باشی', 'menu', 'کەتەلۆگ', 'لیست'
+      'slawe', 'سڵاو عەلەیکوم', 'چۆنی', 'باشی', 'menu', 'کەتەلۆگ', 'لیست',
+      'نرخ', 'کاتالۆگ', 'کاتەلۆگ', 'catalog', 'prices', 'list', 'دەستپێک', 'سەرەتا', 'help'
     ];
     const isGreeting = greetingKeywords.some(g => lower === g || lower.startsWith(g + ' ') || lower.includes(g));
+    const isFirstTime = !session.welcomeSentAt || (now - session.welcomeSentAt > 12 * 3600 * 1000);
 
-    if (isGreeting || lower === '0') {
+    if (isGreeting || lower === '0' || isFirstTime) {
       let welcome = `🌟 *بەخێربێن بۆ کۆمپانیای ڤێرتێکس (Vertex)*\n`;
       welcome += `دابینکردنی کاغەزی حەراری و سەرجەم کەرەستەکانی خاڵی فرۆش (POS) لە عێراق.\n\n`;
       welcome += `📋 *کەتەلۆگی خێرا - ژمارەی بەشەکە بنووسە:*\n`;
@@ -411,6 +504,7 @@ class WhatsAppBaileys {
       welcome += `7️⃣ 🎁 پاکێج و ئۆفەری تایبەتی POS\n`;
       welcome += `8️⃣ 💵 نوێترین نرخی دۆلاری بازاڕ\n`;
       welcome += `9️⃣ 📍 ناونیشان، کاتی دەوام و پەیوەندی\n\n`;
+      welcome += `💡 دەتوانیت بنووسیت *«pdf»* بۆ وەرگرتنی فایل، یان *«ئۆردەر»* بۆ داواکردنی ڕاستەوخۆ.\n\n`;
       welcome += `🚗 *گەیاندن:*\n${DELIVERY_NOTE}\n\n`;
       welcome += `📞 *پەیوەندی بە فرۆشتن:*\n`;
       welcome += `• ${PHONE_1}\n`;
@@ -508,6 +602,13 @@ class WhatsAppBaileys {
           user: this.connectedUser ? this.connectedUser.id.split(':')[0] : null,
           hasQr: !!this.currentQr
         }));
+      }
+
+      // API: Trigger Business Setup
+      if (pathname === '/api/setup-business') {
+        const resObj = await this.setupBusinessProfile();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(resObj));
       }
 
       // API: Send Text
@@ -620,15 +721,56 @@ class WhatsAppBaileys {
   <div class="card">
     ${this.isConnected ? `
       <div class="badge badge-connected">
-        🟢 سێرڤەر بە سەرکەوتوویی بەستراوەتەوە (Online)
+        🟢 سێرڤەری واتسئاپ بزنس بە سەرکەوتوویی بەستراوەتەوە (Online)
       </div>
-      <h1 style="font-size: 24px; margin-bottom: 12px;">VERTEX WhatsApp AI Bot</h1>
-      <p style="color: #a1a1aa; margin-bottom: 20px;">
+      <h1 style="font-size: 26px; margin-bottom: 8px; color: #fff;">VERTEX WhatsApp Business Hub</h1>
+      <p style="color: #a1a1aa; font-size: 14px; margin-bottom: 20px;">
         بۆتەکە ئێستا لەسەر ژمارەی <b>${this.connectedUser ? this.connectedUser.id.split(':')[0] : ''}</b> ۲٤ کاتژمێر چالاکە و وەڵامی هەموو کڕیارێک دەداتەوە!
       </p>
-      <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); border-radius: 12px; padding: 16px; color: #86efac; font-size: 14px;">
-        ✨ ئامادەیە: دەتوانیت لە مۆبایلێکی ترەوە نامە بنێریت بە وشەی «دۆلار» یان «نرخ» تا وەڵامە خێراکەی ببینیت!
+
+      <div style="background: rgba(39, 39, 42, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 18px; margin-bottom: 20px; text-align: right; font-size: 14px; line-height: 1.8;">
+        <div style="color: #38bdf8; font-weight: 700; margin-bottom: 8px;">🏢 ناسنامە و پرۆفایلی واتسئاپ بزنس:</div>
+        <div>• <b>ناو:</b> کۆمپانیای VERTEX بۆ کەرەستەی POS و مارکێت</div>
+        <div>• <b>دەربارە (About):</b> 🏢 کۆمپانیای VERTEX بۆ کەرەستەی POS و مارکێت | 📞 0750 529 9118</div>
+        <div>• <b>کەتەلۆگ:</b> ٤١ بەرهەمی فەرمی بە وێنەی 2K و نرخی ڕاستەوخۆ بە دۆلار و دینار</div>
+        <div>• <b>دەوامی فەرمی:</b> ٩:٠٠ی بەیانی تا ٧:٠٠ی ئێوارە (شەممە تا پێنجشەممە)</div>
+        <div>• <b>گەیاندن:</b> هەموو شارەکان بە کرێی ئاسایی (گەیاندن بێ بەرامبەر نییە)</div>
+        <div>• <b>فرۆشتن:</b> \u200E0750 529 9118 | \u200E0750 758 6992</div>
       </div>
+
+      <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 16px;">
+        <button onclick="syncBusiness()" style="background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 14px;">
+          🔄 نوێکردنەوەی لۆگۆ و پرۆفایل
+        </button>
+      </div>
+      <div id="syncResult" style="font-size: 13px; color: #4ade80; margin-bottom: 16px;"></div>
+
+      <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); border-radius: 12px; padding: 14px; color: #86efac; font-size: 13px; text-align: right; line-height: 1.7;">
+        ✨ <b>تاقیکردنەوە لە مۆبایلەوە:</b><br>
+        هەر لە مۆبایلەکەتەوە یان لە ژمارەیەکی ترەوە ئەم وشانە بۆ ژمارە <b>0751 949 6848</b> بنێرە:<br>
+        • <b>«کەتەلۆگ»</b> یان <b>«سڵاو»</b> ➔ بینینی هەر ٩ بەشەکە<br>
+        • <b>«١» تا «٧»</b> ➔ کەتەلۆگ و وێنەی کوالێتی بەرز<br>
+        • <b>«دۆلار»</b> ➔ نوێترین نرخی بازاڕی هەولێر<br>
+        • <b>«ئۆردەر»</b> ➔ فۆڕمی داواکردنی خێرا
+      </div>
+
+      <script>
+        async function syncBusiness() {
+          const resEl = document.getElementById('syncResult');
+          resEl.textContent = '⏳ پرۆفایل نوێ دەکرێتەوە...';
+          try {
+            const res = await fetch('/api/setup-business');
+            const data = await res.json();
+            if (data.success) {
+              resEl.textContent = '✅ پرۆفایل و لۆگۆ بە سەرکەوتوویی نوێکرانەوە!';
+            } else {
+              resEl.textContent = 'تێبینی: ' + (data.error || 'تەواوبوو');
+            }
+          } catch (e) {
+            resEl.textContent = '❌ هەڵە لە پەیوەندی: ' + e.message;
+          }
+        }
+      </script>
     ` : `
       <div class="badge badge-waiting">
         ⏳ چاوەڕوانی سکانکردنی بارکۆد...
