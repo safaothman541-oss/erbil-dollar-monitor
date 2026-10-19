@@ -22,6 +22,7 @@ class WhatsAppBaileys {
   constructor() {
     this.authDir = path.join(__dirname, '..', 'state', 'baileys_auth');
     this.port = parseInt(process.env.PORT || '3000', 10);
+    this.host = process.env.IP || process.env.HOST || '0.0.0.0';
     this.sock = null;
     this.currentQr = null;
     this.currentQrDataUrl = null;
@@ -742,8 +743,8 @@ class WhatsAppBaileys {
       }
     });
 
-    this.httpServer.listen(this.port, () => {
-      console.log(`[Baileys Server] Vertex Linked WhatsApp Hub running on port ${this.port}`);
+    this.httpServer.listen(this.port, this.host, () => {
+      console.log(`[Baileys Server] Vertex Linked WhatsApp Hub running on ${this.host}:${this.port}`);
       console.log(`[Baileys Server] Open http://localhost:${this.port} to view and scan QR code.`);
     });
   }
