@@ -791,8 +791,17 @@ class WhatsAppBaileys {
         }
       }
 
+      // API: Restart Bot Process
+      if (pathname === '/api/restart') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, message: 'Restarting process in 1 second...' }));
+        setTimeout(() => process.exit(0), 1000);
+        return;
+      }
+
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end('Not Found');
+
 
     });
 
