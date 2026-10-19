@@ -3,4 +3,6 @@ node_modules/
 .DS_Store
 state/cloudflared.log
 state/tunnel_url.json
+state/baileys_auth/
+state/current_qr.png
 *.pdf
