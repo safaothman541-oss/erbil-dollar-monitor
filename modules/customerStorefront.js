@@ -36,8 +36,8 @@ const PRODUCTS = {
     sku: '8080P',
     unit: 'ڕۆڵ',
     cartonSize: 50,
-    priceUsd: 0.86,
-    wholesaleUsd: 0.84,
+    priceUsd: 1.25,
+    wholesaleUsd: 1.20,
     description: 'کاغەزی حەراری کواڵیتی باڵای Panda قەبارەی 80×80 ملم.\n• گونجاوە بۆ هەموو جۆرە پرینتەرێکی پسوولە (Epson, Novex, Xprinter, Zywell).\n• نووسینی زۆر تۆخ و درەوشاوە، سەری پرینتەرەکەت لە سووتان دەپارێزێت.\n• پاکەتی ٥٠ دانەیی (کارتۆن).',
     presets: [50, 100, 250, 500]
   },
@@ -148,51 +148,6 @@ const PRODUCTS = {
     wholesaleUsd: 40.00,
     description: 'کش دراوەری پارەی بەهێزی ئاسنینی قورس.\n• ٥ بەشی دۆلار و دینار + بەشی دراوی ئاسن.\n• بەستنەوەی ڕاستەوخۆ بە پرینتەری پسوولە کە لە کاتی دەرچوونی وەسڵ خۆکار دەکرێتەوە.',
     presets: [1, 2, 5]
-  },
-
-  // Special Bundles (Strictly calculated for High Net Profit)
-  'bundle_supermarket': {
-    name: '🏪 پاکێجی دەستپێکی مارکێت (Supermarket Starter Pack)',
-    category: 'bundles',
-    sku: 'BUNDLE-MKT',
-    unit: 'پاکێج',
-    priceUsd: 175.00,
-    originalPriceUsd: 191.00,
-    description: '🌟 <b>تەواوترین پاکێج بۆ هەر کەسێک کە مارکێت یان فرۆشگا دەکاتەوە:</b>\n' +
-      '  1️⃣ پرینتەری خێرای Novex 8370 بە خێرایی 260mm/s و قاشکەری ئۆتۆماتیک.\n' +
-      '  2️⃣ کش دراوەری ئۆتۆماتیکی قورسی پارە (Heavy Duty Cash Drawer).\n' +
-      '  3️⃣ بارکۆد سکانەری خێرای Henex Wired.\n' +
-      '  4️⃣ یەک کارتۆنی تەواو کاغەزی ئەسڵی Panda 80*80 (٥٠ ڕۆڵ).\n\n' +
-      '• کۆی نرخی تاک بە تاکیان لە بازاڕ: $191 ❌\n' +
-      '• <b>نرخی پاکێج پێکەوە: تەنها $175 ✅</b> (کڕیار $16 داشکاندنی دەستدەکەوێت).',
-    presets: [1, 2]
-  },
-  'bundle_restaurant': {
-    name: '🍽 پاکێجی چێشتخانە و کافێ (Restaurant Pack)',
-    category: 'bundles',
-    sku: 'BUNDLE-REST',
-    unit: 'پاکێج',
-    priceUsd: 89.00,
-    originalPriceUsd: 96.00,
-    description: '🔥 <b>پاکێجی تایبەت بە چێشتخانە و کافێ:</b>\n' +
-      '  1️⃣ پرینتەری خێرای Novex 8370 بە پۆرتی LAN (شەبەکە) تایبەت بە مطبخ و کاشێر.\n' +
-      '  2️⃣ یەک کارتۆن کاغەزی ئەسڵی Panda 80*80 (٥٠ ڕۆڵ).\n\n' +
-      '• کۆی نرخ بە جیا: $96 ❌\n' +
-      '• <b>نرخی پاکێج: تەنها $89 ✅</b>',
-    presets: [1, 2]
-  },
-  'bundle_bulk_paper': {
-    name: '📦 ئۆفەری جوملەی کاغەزی Panda 80*80 (١٠ کارتۆن)',
-    category: 'bundles',
-    sku: 'BUNDLE-PAPER-10',
-    unit: 'ئۆفەر (١٠ کارتۆن)',
-    priceUsd: 425.00, // 10 * 50 * 0.85 = 425
-    originalPriceUsd: 430.00,
-    description: '🚚 <b>ئۆفەری تایبەتی جوملە بۆ سوپەرمارکێت و دەرمانخانە:</b>\n' +
-      '  • ١٠ کارتۆن کاغەزی ئەسڵی Panda 80*80 (٥٠٠ ڕۆڵ).\n' +
-      '  • نرخی دانە حیسابکراوە بە: <b>$0.85</b> لە جیاتی $0.86.\n' +
-      '  • <b>گەیاندن:</b> بەردەستە بۆ هەموو شارەکان.',
-    presets: [1, 2]
   }
 };
 
@@ -207,9 +162,6 @@ class CustomerStorefront {
         [
           { text: '🔫 بارکۆد سکانەر', callback_data: 'cat:scanners' },
           { text: '💰 کش دراوەر و ئامێری POS', callback_data: 'cat:pos_hardware' }
-        ],
-        [
-          { text: '🎁 ئۆفەر و پاکێجی تایبەت (داشکاندن)', callback_data: 'cat:bundles' }
         ],
         [
           { text: '📄 داگرتنی لیستی فەرمیی نرخەکان (PDF)', callback_data: 'action:download_pdf' }
@@ -240,9 +192,7 @@ class CustomerStorefront {
     const p = PRODUCTS[productId];
     if (!p) return null;
 
-    if (p.category === 'bundles') {
-      return p;
-    }
+    
 
     try {
       const items = await zohoService.getItems();
@@ -272,7 +222,6 @@ class CustomerStorefront {
       printers: '🖨 بەشی پرینتەری پسوولە و لەیبڵ',
       scanners: '🔫 بەشی بارکۆد سکانەر',
       pos_hardware: '💰 بەشی کش دراوەر و کەلوپەلی POS',
-      bundles: '🎁 بەشی ئۆفەر و پاکێجی تایبەت (تخفیض)'
     };
 
     let text = `<b>${catTitles[categoryKey] || 'کاڵاکان'}</b>\n\n`;
@@ -286,7 +235,7 @@ class CustomerStorefront {
       const priceIqd = Math.round(p.priceUsd * currentRate);
       text += `🔹 <b>${p.name}</b>\n`;
       text += `  • نرخی تاک: <b>$${p.priceUsd}</b> (~${priceIqd.toLocaleString()} د.ع)\n`;
-      if (p.category !== 'bundles') {
+      if (true) {
         text += `  • 📞 <i>بۆ نرخی جوملە: پەیوەندیمان پێوە بکەن</i>\n`;
       }
       text += `\n`;
@@ -316,7 +265,7 @@ class CustomerStorefront {
     text += `---------------------------------\n`;
     text += `💰 <b>نرخی فەرمیی تاک (Zoho):</b> <b>$${p.priceUsd}</b> (~${priceIqd.toLocaleString()} دینار)\n`;
     
-    if (p.category !== 'bundles') {
+    if (true) {
       text += `📦 <b>بڕی جوملە:</b> تکایە ڕاستەوخۆ پەیوەندیمان پێوە بکەن بۆ وەرگرتنی داشکاندنی تایبەتی جوملە.\n`;
     }
     
@@ -327,7 +276,7 @@ class CustomerStorefront {
       [{ text: '🛒 داواکردنی ئەم کاڵایە (نرخی تاک)', callback_data: `order_start:${productId}` }]
     ];
 
-    if (p.category !== 'bundles') {
+    if (true) {
       buttons.push([{ text: '📞 داواکردنی نرخی جوملە (پەیوەندی)', callback_data: 'cat:contact' }]);
     }
 

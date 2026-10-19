@@ -169,47 +169,10 @@ class ChannelPublisher {
     });
   }
 
-  // 3. Bundles & Value Packs Post (Delivery available, not free)
+  // 3. Bundles removed as per business rules (Single source: Zoho Books individual items)
   async publishBundleOffer(targetChat = null, currentRate = 1684) {
-    const chat = targetChat || this.channelId;
-    let msg = `🎁 <b>پاکێج و ئۆفەرەکانی VERTEX بۆ خاڵی فرۆش (POS)</b>\n\n`;
-
-    msg += `🏪 <b>پاکێجی ١: سوپەرمارکێت و دەرمانخانە</b>\n`;
-    msg += `  • پرینتەری خێرای پسوولە بە قاشکەری ئۆتۆماتیکی\n`;
-    msg += `  • کش دراوەری پۆڵایینی ئۆتۆماتیکی 6.5 KG (CD-410)\n`;
-    msg += `  • بارکۆد سکانەری 1D/2D QR لەگەڵ پایە\n`;
-    msg += `  • <b>١ کارتۆن کاغەزی Panda 80*80 (٥٠ ڕۆڵ)</b>\n`;
-    msg += `  💰 <b>کۆی نرخ:</b> <b>$175.00</b> (~${Math.round(175 * currentRate).toLocaleString()} دینار)\n\n`;
-
-    msg += `🍽 <b>پاکێجی ٢: چێشتخانە و کافێ (LAN Kitchen Pack)</b>\n`;
-    msg += `  • پرینتەری پسوولەی LAN (بۆ ناردنی داواکاری لە کاشێرەوە بۆ مطبخ)\n`;
-    msg += `  • <b>١ کارتۆن کاغەزی Panda 80*80 (٥٠ ڕۆڵ)</b>\n`;
-    msg += `  💰 <b>کۆی نرخ:</b> <b>$89.00</b> (~${Math.round(89 * currentRate).toLocaleString()} دینار)\n\n`;
-
-    msg += `📦 <b>پاکێجی ٣: جوملەی ١٠ کارتۆن کاغەزی Panda 80*80</b>\n`;
-    msg += `  • ٥٠٠ ڕۆڵ بە نرخی داشکاندنی تایبەت ($0.85 بۆ ڕۆڵێک)\n`;
-    msg += `  💰 <b>کۆی نرخ:</b> <b>$425.00</b> (~${Math.round(425 * currentRate).toLocaleString()} دینار)\n\n`;
-
-    msg += `🚚 <i>تێبینی: گەیاندن بەردەستە بۆ هەموو شارەکان (گەیاندن بێ بەرامبەر نییە - بە کرێی گواستنەوەی ئاسایی).</i>\n`;
-    msg += `📞 پەیوەندی و داواکردن: <code>${LTR}0750 758 6992</code> | <code>${LTR}0750 529 9118</code>`;
-
-    const bundlePhoto = path.join(__dirname, '..', 'assets', 'products', 'novex_printer_back.jpeg');
-    const buttons = this.getChannelButtons('پاکێجەکان');
-
-    if (fs.existsSync(bundlePhoto)) {
-      try {
-        return await telegramService.sendPhoto(bundlePhoto, {
-          chatId: chat,
-          caption: msg,
-          replyMarkup: buttons
-        });
-      } catch (e) {}
-    }
-
-    return telegramService.sendMessage(msg, {
-      chatId: chat,
-      replyMarkup: buttons
-    });
+    console.log('[ChannelPublisher] Bundle offers are permanently disabled as per business policy.');
+    return null;
   }
 
   // 4. Daily Official PDF Price Sheet Post (English Only, No Stock, Both Phones)
