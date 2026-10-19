@@ -6,6 +6,7 @@ const whatsappBaileys = require('../services/whatsappBaileys');
 
 const LEADS_FILE = path.join(__dirname, '../data/leads_contacts.json');
 const STATE_FILE = path.join(config.STATE_DIR, 'outreach_state.json');
+const QUEUE_FILE = path.join(config.STATE_DIR, 'outreach_queue.json');
 
 const PHONE_SALES = '\u200E0750 758 6992';
 const PHONE_BOT = '\u200E0751 949 6848';
@@ -17,14 +18,23 @@ class DailyOutreach {
     this.leads = [];
     this.state = {
       lastRunDate: null,
+      lastQueueDate: null,
       currentIndex: 0,
       totalSent: 0,
       totalSkippedNotWa: 0,
       isRunning: false,
+      excludedPhones: [],
       history: []
+    };
+    this.queue = {
+      date: null,
+      status: 'pending', // 'pending', 'approved', 'paused', 'completed'
+      createdAt: null,
+      items: []
     };
     this.loadLeads();
     this.loadState();
+    this.loadQueue();
   }
 
   loadLeads() {
@@ -67,6 +77,36 @@ class DailyOutreach {
     }
   }
 
+  loadQueue() {
+    try {
+      if (fs.existsSync(QUEUE_FILE)) {
+        const raw = fs.readFileSync(QUEUE_FILE, 'utf8');
+        this.queue = Object.assign(this.queue, JSON.parse(raw));
+      }
+    } catch (e) {
+      console.error('[DailyOutreach] Failed to load queue:', e.message);
+    }
+  }
+
+  saveQueue() {
+    try {
+      if (!fs.existsSync(config.STATE_DIR)) {
+        fs.mkdirSync(config.STATE_DIR, { recursive: true });
+      }
+      fs.writeFileSync(QUEUE_FILE, JSON.stringify(this.queue, null, 2), 'utf8');
+    } catch (e) {
+      console.error('[DailyOutreach] Failed to save queue:', e.message);
+    }
+  }
+
+  normalizePhone(phone) {
+    let clean = String(phone).replace(/[^0-9]/g, '');
+    if (clean.startsWith('00964')) clean = clean.substring(2);
+    else if (clean.startsWith('07')) clean = '964' + clean.substring(1);
+    else if (clean.startsWith('7') && clean.length === 10) clean = '964' + clean;
+    return clean;
+  }
+
   generateKurdishOutreachMessage(lead) {
     const shopName = lead.name && lead.name !== 'مارکێت / شوێنی بەڕێز' ? lead.name : 'مارکێت و دوکانی بەڕێزتان';
 
@@ -99,139 +139,360 @@ class DailyOutreach {
     return msg;
   }
 
-  async runDailyBatch(targetCount = 100) {
+  // Pre-screen and prepare tomorrow's 100 targets (Called at 10:00 PM nightly or via Telegram command)
+  async prepareNightlyQueue(targetCount = 100) {
+    if (!whatsappBaileys.isConnected) {
+      console.warn('[DailyOutreach] WhatsApp Baileys is not connected. Cannot pre-screen.');
+      return { status: 'whatsapp_not_connected' };
+    }
+
+    if (this.leads.length === 0) this.loadLeads();
+    if (this.leads.length === 0) return { status: 'no_leads' };
+
+    console.log(`[DailyOutreach] 🔍 Starting nightly WhatsApp pre-screening for ${targetCount} verified targets...`);
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+    const queueItems = [];
+    let checkPointer = this.state.currentIndex;
+    let checkedTotal = 0;
+    let skippedExcluded = 0;
+    let skippedNotWa = 0;
+
+    const excludedSet = new Set(this.state.excludedPhones || []);
+    const sentSet = new Set((this.state.history || []).map(h => h.phone));
+
+    while (queueItems.length < targetCount && checkPointer < this.leads.length) {
+      const lead = this.leads[checkPointer];
+      checkPointer++;
+      checkedTotal++;
+
+      const clean = this.normalizePhone(lead.phone);
+      if (excludedSet.has(clean) || sentSet.has(clean)) {
+        skippedExcluded++;
+        continue;
+      }
+
+      // Check WhatsApp existence
+      let waJid = null;
+      try {
+        waJid = await whatsappBaileys.checkNumberOnWhatsApp(clean);
+      } catch (err) {
+        console.warn(`[DailyOutreach] Pre-check error on ${clean}:`, err.message);
+      }
+
+      if (!waJid) {
+        skippedNotWa++;
+        this.state.totalSkippedNotWa++;
+        continue;
+      }
+
+      queueItems.push({
+        id: queueItems.length + 1,
+        leadIndex: checkPointer - 1,
+        name: lead.name,
+        city: lead.city,
+        phone: clean,
+        rawPhone: lead.rawPhone || lead.phone,
+        waJid: waJid,
+        enabled: true,
+        status: 'pending'
+      });
+
+      // Small delay between checks to avoid rate limit
+      await new Promise(r => setTimeout(r, 200));
+    }
+
+    this.queue = {
+      date: tomorrowStr,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      items: queueItems
+    };
+    this.saveQueue();
+
+    this.state.lastQueueDate = new Date().toISOString().split('T')[0];
+    this.saveState();
+
+    console.log(`[DailyOutreach] ✅ Pre-screened ${queueItems.length} verified WhatsApp numbers for ${tomorrowStr}.`);
+
+    // Post to Telegram
+    await this.postQueueToTelegram();
+
+    return {
+      status: 'prepared',
+      targetDate: tomorrowStr,
+      count: queueItems.length,
+      checkedTotal,
+      skippedNotWa
+    };
+  }
+
+  async postQueueToTelegram(chatId = null, threadId = null) {
+    const targetChat = chatId || config.GROUP_CHAT_ID;
+    const targetThread = threadId || config.TOPICS.SALES;
+
+    const enabledItems = this.queue.items.filter(i => i.enabled);
+    const disabledItems = this.queue.items.filter(i => !i.enabled);
+
+    let msg = `📋 <b>خشتەی ١٠٠ مارکێت و شوێنی ئامادەکراو بۆ سبەینێ (سەعات ٩:٠٠ی بەیانی) 🌅</b>\n\n`;
+    msg += `• <b>بەرواری ناردن:</b> سبەینێ ${this.queue.date || 'ئەمڕۆ'}\n`;
+    msg += `• <b>دۆخی واتسئاپ:</b> هەموویان بە سەرکەوتوویی پشکنران و پشتڕاستکرانەوە ✅\n`;
+    msg += `• <b>کۆی ئامادەکراو:</b> ${enabledItems.length} شوێن`;
+    if (disabledItems.length > 0) {
+      msg += ` (${disabledItems.length} شوێن بە دەستی لادراون)`;
+    }
+    msg += `\n• <b>دۆخی ناردن:</b> ${this.queue.status === 'paused' ? '⏸ ڕاگیراوە (Paused)' : '▶️ چالاکە و سەعات ٩ دەنێردرێت'}\n\n`;
+
+    msg += `<b>نموونەی ١٠ مارکێتی یەکەمی لیستەکە:</b>\n`;
+    const previewList = this.queue.items.slice(0, 10);
+    previewList.forEach((it, idx) => {
+      const statusIcon = it.enabled ? '🟢' : '🔴 (لادراوە)';
+      msg += `${idx + 1}. ${statusIcon} <b>${it.name}</b> (${it.city}) - <code>${it.phone}</code>\n`;
+    });
+
+    msg += `\n🎮 <b>دەستکاری و کۆنتڕۆڵی تەواو لە چاتەوە:</b>\n`;
+    msg += `• بۆ لادانی هەر ژمارەیەک: <code>/remove 0750xxxxxxx</code>\n`;
+    msg += `• بۆ زیادکردنی شوێنی تایبەت: <code>/add 0750xxxxxxx ناوی شوێن</code>\n`;
+    msg += `• بینینی تەواوی ١٠٠ ناوەکە: <code>/outreach_list</code>\n`;
+    msg += `• تاقیکردنەوەی ١ نامە: <code>/outreach_test 0750xxxxxxx</code>`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: '📄 داگرتنی فایلی تەواوی لیست', callback_data: 'outreach:send_file' },
+          { text: this.queue.status === 'paused' ? '▶️ چالاککردنەوە' : '⏸ ڕاگرتنی سبەینێ', callback_data: 'outreach:toggle_pause' }
+        ],
+        [
+          { text: '🔄 پشکنینەوەی ١٠٠ دانەی نوێ', callback_data: 'outreach:refresh' },
+          { text: '🚀 دەستپێکردنی ناردن هەر ئێستا', callback_data: 'outreach:start_now' }
+        ]
+      ]
+    };
+
+    await telegramService.sendMessage(msg, {
+      chatId: targetChat,
+      threadId: targetThread,
+      replyMarkup: keyboard
+    }).catch(e => console.error('[DailyOutreach] Failed to post queue to Telegram:', e.message));
+  }
+
+  // Remove / Exclude a number from queue
+  removeNumber(phoneInput) {
+    const clean = this.normalizePhone(phoneInput);
+    if (!this.state.excludedPhones) this.state.excludedPhones = [];
+    if (!this.state.excludedPhones.includes(clean)) {
+      this.state.excludedPhones.push(clean);
+      this.saveState();
+    }
+
+    let found = null;
+    if (this.queue && this.queue.items) {
+      for (const item of this.queue.items) {
+        if (item.phone === clean || item.phone.endsWith(clean.slice(-7))) {
+          item.enabled = false;
+          item.status = 'removed_by_user';
+          found = item;
+          break;
+        }
+      }
+      this.saveQueue();
+    }
+
+    return found;
+  }
+
+  // Add custom number into queue
+  async addNumber(phoneInput, nameInput, cityInput = 'کوردستان') {
+    const clean = this.normalizePhone(phoneInput);
+    
+    // Check WhatsApp existence
+    let waJid = null;
+    try {
+      waJid = await whatsappBaileys.checkNumberOnWhatsApp(clean);
+    } catch (e) {
+      console.warn(`[DailyOutreach] Check error on addNumber:`, e.message);
+    }
+
+    if (!waJid) {
+      return { success: false, reason: 'not_on_whatsapp' };
+    }
+
+    // Remove from excluded if it was there
+    if (this.state.excludedPhones) {
+      this.state.excludedPhones = this.state.excludedPhones.filter(p => p !== clean);
+      this.saveState();
+    }
+
+    const newItem = {
+      id: (this.queue.items ? this.queue.items.length : 0) + 1,
+      name: nameInput.trim() || 'مارکێتی بەڕێز',
+      city: cityInput.trim() || 'کوردستان',
+      phone: clean,
+      rawPhone: phoneInput,
+      waJid: waJid,
+      enabled: true,
+      status: 'pending',
+      customAdded: true
+    };
+
+    if (!this.queue.items) this.queue.items = [];
+    this.queue.items.unshift(newItem);
+    this.saveQueue();
+
+    return { success: true, item: newItem };
+  }
+
+  togglePause() {
+    this.queue.status = this.queue.status === 'paused' ? 'approved' : 'paused';
+    this.saveQueue();
+    return this.queue.status;
+  }
+
+  // Generate full readable text file of queue for download
+  generateQueueTextFile() {
+    const filePath = path.join(config.STATE_DIR, 'outreach_targets_tomorrow.txt');
+    let text = `لیستی ١٠٠ شوێنی ئامادەکراو بۆ ناردنی نامەی واتسئاپ\n`;
+    text += `بەروار: ${this.queue.date || 'سبەینێ'} | دۆخ: ${this.queue.status}\n`;
+    text += `========================================================\n\n`;
+
+    (this.queue.items || []).forEach((it, idx) => {
+      const stateStr = it.enabled ? '[چالاک]' : '[لادراوە]';
+      text += `${idx + 1}. ${stateStr} ${it.name} | شار: ${it.city} | مۆبایل: ${it.phone}\n`;
+    });
+
+    fs.writeFileSync(filePath, text, 'utf8');
+    return filePath;
+  }
+
+  // Execute the morning outreach (Called at 9:00 AM)
+  async executeMorningOutreach(forced = false) {
     if (this.state.isRunning) {
-      console.warn('[DailyOutreach] Outreach is already running.');
+      console.warn('[DailyOutreach] Outreach batch is already running.');
       return { status: 'already_running' };
     }
 
     if (!whatsappBaileys.isConnected) {
-      console.warn('[DailyOutreach] WhatsApp Baileys is not connected. Aborting outreach batch.');
+      console.warn('[DailyOutreach] WhatsApp Baileys is not connected.');
       return { status: 'whatsapp_not_connected' };
     }
 
-    if (this.leads.length === 0) {
-      this.loadLeads();
+    // If queue is empty or from a past date, prepare now
+    if (!this.queue.items || this.queue.items.length === 0) {
+      console.log('[DailyOutreach] Queue was empty, preparing queue now...');
+      await this.prepareNightlyQueue(100);
     }
 
-    if (this.leads.length === 0) {
-      console.error('[DailyOutreach] No leads available.');
-      return { status: 'no_leads' };
+    if (this.queue.status === 'paused' && !forced) {
+      console.log('[DailyOutreach] Queue is paused by user. Skipping morning outreach.');
+      await telegramService.sendMessage('⏸ <b>ئاگاداری:</b> ناردنی نامەکانی واتسئاپ بۆ ئەم بەیانییە بە فەرمانی بەڕێوەبەر ڕاگیراوە (Paused).', {
+        chatId: config.GROUP_CHAT_ID,
+        threadId: config.TOPICS.SALES
+      }).catch(() => {});
+      return { status: 'paused' };
+    }
+
+    const enabledItems = (this.queue.items || []).filter(i => i.enabled && i.status === 'pending');
+    if (enabledItems.length === 0) {
+      console.log('[DailyOutreach] No pending enabled items in queue.');
+      return { status: 'no_pending_items' };
     }
 
     this.state.isRunning = true;
     this.saveState();
 
-    console.log(`[DailyOutreach] 🚀 Starting daily outreach batch of ${targetCount} messages. Starting index: ${this.state.currentIndex}`);
+    console.log(`[DailyOutreach] 🚀 Executing morning outreach to ${enabledItems.length} targets...`);
 
-    // Notify Telegram Admin / Topic 4 (Sales/Invoices)
-    try {
-      const startNote = `🚀 <b>دەستکرا بە هەڵمەتی نامەناردنی بەیانیان بۆ ${targetCount} مارکێت و بازرگان</b>\n` +
-        `• کاتی دەستپێکردن: ٩:٠٠ی بەیانی\n` +
-        `• شوێنی ڕیزبەندی: لە ژمارە <b>${this.state.currentIndex + 1}</b> لە کۆی ${this.leads.length} ژمارە\n` +
-        `• نامەکان بە هێمنی (بە جیاوازی ٣٠ چرکه) دەنێردرێن بۆ پاراستنی ئەکاونتی واتسئاپ.`;
-      
-      await telegramService.sendMessage(startNote, {
-        chatId: config.GROUP_CHAT_ID,
-        threadId: config.TOPICS.SALES
-      }).catch(() => {});
-    } catch (e) {
-      console.error('[DailyOutreach] Failed to send Telegram start notification:', e.message);
-    }
+    // Notify Telegram start
+    await telegramService.sendMessage(`🚀 <b>دەستکرا بە ناردنی نامەی واتسئاپ بۆ ${enabledItems.length} مارکێتی پەسەندکراو</b>\n` +
+      `• کاتی دەستپێکردن: ٩:٠٠ی بەیانی\n` +
+      `• بۆ پاراستنی ئەکاونت، نێوان هەر نامەیەک ٣٠ چرکەیە.`, {
+      chatId: config.GROUP_CHAT_ID,
+      threadId: config.TOPICS.SALES
+    }).catch(() => {});
 
-    let sentToday = 0;
-    let checkedCount = 0;
+    let sentCount = 0;
 
-    try {
-      while (sentToday < targetCount && this.state.currentIndex < this.leads.length) {
-        const lead = this.leads[this.state.currentIndex];
-        this.state.currentIndex++;
-        checkedCount++;
+    for (let i = 0; i < enabledItems.length; i++) {
+      const item = enabledItems[i];
+      const message = this.generateKurdishOutreachMessage(item);
 
-        // 1. Verify if number is registered on WhatsApp
-        let waJid = null;
-        try {
-          waJid = await whatsappBaileys.checkNumberOnWhatsApp(lead.phone);
-        } catch (checkErr) {
-          console.warn(`[DailyOutreach] Error checking ${lead.phone}:`, checkErr.message);
-        }
-
-        if (!waJid) {
-          this.state.totalSkippedNotWa++;
-          console.log(`[DailyOutreach] [SKIP] ${lead.phone} (${lead.name}) is NOT on WhatsApp.`);
-          this.saveState();
-          await new Promise(r => setTimeout(r, 1000));
-          continue;
-        }
-
-        // 2. Format personalized message
-        const message = this.generateKurdishOutreachMessage(lead);
-
-        // 3. Send message via Baileys
-        try {
-          await whatsappBaileys.sendText(waJid, message);
-          sentToday++;
-          this.state.totalSent++;
-          this.state.history.unshift({
-            phone: lead.phone,
-            name: lead.name,
-            city: lead.city,
-            sentAt: new Date().toISOString()
-          });
-          if (this.state.history.length > 50) this.state.history.pop();
-          this.saveState();
-
-          console.log(`[DailyOutreach] ✅ Sent (${sentToday}/${targetCount}) to ${lead.name} (${lead.phone})`);
-        } catch (sendErr) {
-          console.error(`[DailyOutreach] ❌ Failed to send to ${lead.phone}:`, sendErr.message);
-        }
-
-        // 4. Natural anti-ban delay (25 to 45 seconds between messages)
-        if (sentToday < targetCount && this.state.currentIndex < this.leads.length) {
-          const delaySec = Math.floor(Math.random() * 20) + 25; // 25-45 seconds
-          console.log(`[DailyOutreach] ⏳ Anti-ban delay: waiting ${delaySec}s before next send...`);
-          await new Promise(r => setTimeout(r, delaySec * 1000));
-        }
-      }
-
-      const todayDateStr = new Date().toISOString().split('T')[0];
-      this.state.lastRunDate = todayDateStr;
-      this.state.isRunning = false;
-      this.saveState();
-
-      console.log(`[DailyOutreach] 🏁 Finished daily batch: ${sentToday} sent, ${checkedCount} checked.`);
-
-      // Send completion report to Telegram
       try {
-        const finishNote = `✅ <b>هەڵمەتی نامەناردنی بەیانیان بە سەرکەوتوویی تەواو بوو!</b>\n\n` +
-          `• <b>نامەی نێردراو ئەمڕۆ:</b> ${sentToday} نامە\n` +
-          `• <b>ژمارەی پشکێنراو:</b> ${checkedCount}\n` +
-          `• <b>کۆی گشتی نێردراوەکان تا ئێستا:</b> ${this.state.totalSent} مارکێت\n` +
-          `• <b>ڕیزبەندی داهاتوو:</b> لە ژمارە ${this.state.currentIndex + 1} دەستپێدەکاتەوە.\n` +
-          `• <b>وەڵامی کڕیاران:</b> ڕاستەوخۆ لەلایەن بۆتی کلاودی واتسئاپەوە وەڵام دەدرێتەوە 💬`;
+        await whatsappBaileys.sendText(item.waJid, message);
+        sentCount++;
+        this.state.totalSent++;
+        item.status = 'sent';
+        item.sentAt = new Date().toISOString();
 
-        await telegramService.sendMessage(finishNote, {
-          chatId: config.GROUP_CHAT_ID,
-          threadId: config.TOPICS.SALES
-        }).catch(() => {});
-      } catch (e) {
-        console.error('[DailyOutreach] Failed to send Telegram finish notification:', e.message);
+        this.state.history.unshift({
+          phone: item.phone,
+          name: item.name,
+          city: item.city,
+          sentAt: item.sentAt
+        });
+        if (this.state.history.length > 50) this.state.history.pop();
+
+        this.saveQueue();
+        this.saveState();
+
+        console.log(`[DailyOutreach] ✅ (${sentCount}/${enabledItems.length}) Sent to ${item.name} (${item.phone})`);
+      } catch (err) {
+        console.error(`[DailyOutreach] ❌ Error sending to ${item.phone}:`, err.message);
+        item.status = 'error';
+        this.saveQueue();
       }
 
-      return {
-        status: 'completed',
-        sentToday,
-        checkedCount,
-        totalSent: this.state.totalSent,
-        nextIndex: this.state.currentIndex
-      };
-
-    } catch (fatalErr) {
-      console.error('[DailyOutreach] Fatal error during batch:', fatalErr.message);
-      this.state.isRunning = false;
-      this.saveState();
-      return { status: 'error', error: fatalErr.message };
+      // Natural delay (25-45 seconds)
+      if (i < enabledItems.length - 1) {
+        const delaySec = Math.floor(Math.random() * 20) + 25;
+        console.log(`[DailyOutreach] ⏳ Anti-ban delay: waiting ${delaySec}s...`);
+        await new Promise(r => setTimeout(r, delaySec * 1000));
+      }
     }
+
+    // Advance pointer in leads database past this batch
+    const maxLeadIdx = Math.max(...enabledItems.map(it => it.leadIndex || 0), this.state.currentIndex);
+    this.state.currentIndex = maxLeadIdx + 1;
+    this.state.lastRunDate = new Date().toISOString().split('T')[0];
+    this.state.isRunning = false;
+    this.queue.status = 'completed';
+
+    this.saveState();
+    this.saveQueue();
+
+    console.log(`[DailyOutreach] 🏁 Morning outreach finished: ${sentCount} sent.`);
+
+    // Notify Telegram finish
+    await telegramService.sendMessage(`✅ <b>هەڵمەتی نامەناردنی بەیانیان بە سەرکەوتوویی کۆتایی هات!</b>\n\n` +
+      `• <b>نامەی نێردراو ئەمڕۆ:</b> ${sentCount} مارکێت\n` +
+      `• <b>کۆی گشتی تا ئێستا:</b> ${this.state.totalSent} شوێن\n` +
+      `• <b>ڕیزبەندی داهاتوو:</b> لە ژمارە ${this.state.currentIndex + 1} دەستپێدەکاتەوە.\n` +
+      `• <b>وەڵامدانەوە:</b> هەر کڕیارێک وەڵام بداتەوە بۆتەکەی واتسئاپ وەڵامی دەداتەوە 💬`, {
+      chatId: config.GROUP_CHAT_ID,
+      threadId: config.TOPICS.SALES
+    }).catch(() => {});
+
+    return { status: 'completed', sentCount };
+  }
+
+  // Send a single test message immediately
+  async sendTestMessage(phoneInput) {
+    const clean = this.normalizePhone(phoneInput);
+    const waJid = await whatsappBaileys.checkNumberOnWhatsApp(clean);
+    if (!waJid) {
+      return { success: false, reason: 'not_on_whatsapp' };
+    }
+
+    const testLead = {
+      name: 'بەڕێزتان (تاقیکردنەوە)',
+      city: 'کوردستان',
+      phone: clean
+    };
+    const msg = this.generateKurdishOutreachMessage(testLead);
+    await whatsappBaileys.sendText(waJid, msg);
+    return { success: true, phone: clean };
   }
 
   getStatus() {
@@ -241,8 +502,10 @@ class DailyOutreach {
       totalSent: this.state.totalSent,
       totalSkippedNotWa: this.state.totalSkippedNotWa,
       isRunning: this.state.isRunning,
-      lastRunDate: this.state.lastRunDate,
-      recentHistory: this.state.history.slice(0, 10)
+      queueStatus: this.queue.status,
+      queueDate: this.queue.date,
+      queueCount: (this.queue.items || []).filter(i => i.enabled).length,
+      excludedCount: (this.state.excludedPhones || []).length
     };
   }
 }

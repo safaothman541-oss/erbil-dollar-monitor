@@ -26,6 +26,8 @@ let lastUpdateId = 0;
 let lastEveningReportDate = null;
 let lastPriceListDate = null;
 let lastOutreachDate = null;
+let lastNightlyQueueDate = null;
+
 
 
 // Build Interactive Calculator Keyboards
@@ -253,7 +255,31 @@ async function handleCallback(cb) {
       replyMarkup: getCalculatorKeyboard()
     });
   }
+
+  // Outreach Callbacks
+  if (data.startsWith('outreach:')) {
+    const action = data.replace('outreach:', '');
+    if (action === 'send_file') {
+      const filePath = dailyOutreach.generateQueueTextFile();
+      await telegramService.sendDocument(filePath, {
+        chatId,
+        threadId,
+        caption: `📋 <b>لیستی تەواوی ١٠٠ شوێنی ئامادەکراو بۆ واتسئاپ</b>\nبەروار: ${dailyOutreach.queue.date || 'سبەینێ'}`
+      });
+    } else if (action === 'toggle_pause') {
+      dailyOutreach.togglePause();
+      await dailyOutreach.postQueueToTelegram(chatId, threadId);
+    } else if (action === 'refresh') {
+      await telegramService.sendMessage('🔄 <b>دەستکرا بە پشکنینەوەی ١٠٠ دانەی نوێ...</b>', { chatId, threadId });
+      await dailyOutreach.prepareNightlyQueue(100);
+    } else if (action === 'start_now') {
+      await telegramService.sendMessage('🚀 <b>دەستکرا بە ناردنی نامەکان هەر ئێستا...</b>', { chatId, threadId });
+      dailyOutreach.executeMorningOutreach(true).catch(console.error);
+    }
+    return;
+  }
 }
+
 
 async function handleMessage(msg) {
   const chatId = msg.chat.id;
@@ -381,7 +407,98 @@ async function handleMessage(msg) {
     return;
   }
 
+  // --- Outreach & Marketing Queue Management Commands ---
+  if (text.startsWith('/queue') || text.startsWith('/outreach')) {
+    if (text.startsWith('/outreach_prepare') || text.startsWith('/prepare_queue')) {
+      await telegramService.sendMessage('🔍 <b>دەستکرا بە پشکنینی واتسئاپ و ئامادەکردنی ١٠٠ مارکێت بۆ سبەینێ...</b>\nتکایە کەمێک چاوەڕوان بە.', { chatId, threadId });
+      await dailyOutreach.prepareNightlyQueue(100);
+      return;
+    }
+
+    if (text.startsWith('/outreach_list')) {
+      const filePath = dailyOutreach.generateQueueTextFile();
+      await telegramService.sendDocument(filePath, {
+        chatId,
+        threadId,
+        caption: `📋 <b>لیستی تەواوی ١٠٠ شوێنی ئامادەکراو بۆ واتسئاپ</b>\nبەروار: ${dailyOutreach.queue.date || 'سبەینێ'}\nدەتوانیت بە فەرمانی <code>/remove ژمارە</code> هەر یەکێکیان لابدەیت.`
+      });
+      return;
+    }
+
+    if (text.startsWith('/outreach_test')) {
+      const parts = text.split(/\s+/);
+      const testPhone = parts[1];
+      if (!testPhone) {
+        await telegramService.sendMessage('⚠️ تکایە ژمارەکە دیاری بکە: <code>/outreach_test 0750xxxxxxx</code>', { chatId, threadId });
+        return;
+      }
+      await telegramService.sendMessage(`⏳ لە ناردندایە بۆ <code>${testPhone}</code>...`, { chatId, threadId });
+      const res = await dailyOutreach.sendTestMessage(testPhone);
+      if (res.success) {
+        await telegramService.sendMessage(`✅ نامەی فەرمیی ڤێرتێکس بە سەرکەوتوویی بۆ <code>${testPhone}</code> نێردرا!`, { chatId, threadId });
+      } else {
+        await telegramService.sendMessage(`❌ ئەم ژمارەیە واتسئاپی نییە یان کێشەیەک ڕوویدا: ${res.reason}`, { chatId, threadId });
+      }
+      return;
+    }
+
+    // Default: Show queue status & options
+    await dailyOutreach.postQueueToTelegram(chatId, threadId);
+    return;
+  }
+
+  // Remove number from outreach queue
+  if (text.startsWith('/remove') || text.startsWith('/skip')) {
+    const parts = text.split(/\s+/);
+    const phoneToDel = parts[1];
+    if (!phoneToDel) {
+      await telegramService.sendMessage('⚠️ تکایە ژمارەی مۆبایلەکە دیاری بکە: <code>/remove 0750xxxxxxx</code>', { chatId, threadId });
+      return;
+    }
+    const removedItem = dailyOutreach.removeNumber(phoneToDel);
+    if (removedItem) {
+      await telegramService.sendMessage(`❌ <b>شوێنی «${removedItem.name}» (${removedItem.phone})</b> لە لیستی سبەینێ لادرا و نامەی بۆ ناڕوات.\n(کۆی ئامادەکراو بۆ سبەینێ: ${dailyOutreach.queue.items.filter(i => i.enabled).length} شوێن)`, { chatId, threadId });
+    } else {
+      await telegramService.sendMessage(`⚠️ ژمارەی <code>${phoneToDel}</code> خرایە لیستی سڕاوەکانەوە تا بە هیچ جۆرێک نامەی بۆ نەڕوات.`, { chatId, threadId });
+    }
+    return;
+  }
+
+  // Add custom number to outreach queue
+  if (text.startsWith('/add') || text.startsWith('/include')) {
+    const parts = text.split(/\s+/);
+    const phoneToAdd = parts[1];
+    const nameToAdd = parts.slice(2).join(' ') || 'مارکێتی بەڕێز';
+    if (!phoneToAdd) {
+      await telegramService.sendMessage('⚠️ تکایە ژمارە و ناوی شوێنەکە بنووسە:\n<code>/add 0750xxxxxxx ناوی مارکێت</code>', { chatId, threadId });
+      return;
+    }
+    await telegramService.sendMessage(`🔍 پشکنینی واتسئاپ بۆ <code>${phoneToAdd}</code>...`, { chatId, threadId });
+    const addRes = await dailyOutreach.addNumber(phoneToAdd, nameToAdd);
+    if (addRes.success) {
+      await telegramService.sendMessage(`✅ <b>«${nameToAdd}» (${addRes.item.phone})</b> لەسەر واتسئاپ پشتڕاستکرایەوە و زیادکرا بۆ لیستی سبەینێ!\n(کۆی ئامادەکراو: ${dailyOutreach.queue.items.filter(i => i.enabled).length} شوێن)`, { chatId, threadId });
+    } else {
+      await telegramService.sendMessage(`❌ نەتوانرا زیاد بکرێت: ئەم ژمارەیە (${phoneToAdd}) لەسەر واتسئاپ نییە!`, { chatId, threadId });
+    }
+    return;
+  }
+
+  if (text.startsWith('/pause_outreach')) {
+    dailyOutreach.queue.status = 'paused';
+    dailyOutreach.saveQueue();
+    await telegramService.sendMessage('⏸ <b>ناردنی نامەکانی واتسئاپ بە شێوەیەکی کاتی ڕاگیرا (Paused).</b>\nبۆ دەستپێکردنەوە بنووسە: <code>/resume_outreach</code>', { chatId, threadId });
+    return;
+  }
+
+  if (text.startsWith('/resume_outreach') || text.startsWith('/approve_outreach')) {
+    dailyOutreach.queue.status = 'approved';
+    dailyOutreach.saveQueue();
+    await telegramService.sendMessage('▶️ <b>ناردنی نامەکانی بەیانیان چالاککرایەوە (Approved).</b>\nسبەینێ سەعات ٩:٠٠ی بەیانی دەستپێدەکات.', { chatId, threadId });
+    return;
+  }
+
   // --- Supergroup Topic Handlers ---
+
   // If command /start or /help in group
   if (text.startsWith('/start') || text.startsWith('/help')) {
     let welcome = `👋 <b>بەخێربێن بۆ سیستەمی یەکگرتووی کۆمپانیای Vertex</b>\n\n`;
@@ -489,10 +606,20 @@ async function backgroundCycle() {
     if (baghdadHour === 9 && baghdadMinute < 15 && lastOutreachDate !== todayDateStr) {
       console.log('[Background] Morning WhatsApp outreach time reached (09:00 Baghdad).');
       lastOutreachDate = todayDateStr;
-      dailyOutreach.runDailyBatch(100).catch(err => {
+      dailyOutreach.executeMorningOutreach().catch(err => {
         console.error('[Background] Daily outreach error:', err.message);
       });
     }
+
+    // 6. Nightly Pre-Screening & Queue Preparation check (10:00 PM Baghdad time = 22:00)
+    if (baghdadHour === 22 && baghdadMinute < 15 && lastNightlyQueueDate !== todayDateStr) {
+      console.log('[Background] Nightly 10:00 PM WhatsApp pre-screening time reached.');
+      lastNightlyQueueDate = todayDateStr;
+      dailyOutreach.prepareNightlyQueue(100).catch(err => {
+        console.error('[Background] Nightly queue error:', err.message);
+      });
+    }
+
 
 
   } catch (err) {
