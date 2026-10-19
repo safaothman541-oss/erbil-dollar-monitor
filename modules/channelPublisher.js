@@ -37,15 +37,12 @@ class ChannelPublisher {
     return {
       inline_keyboard: [
         [
-          { text: `🛒 داواکردنی خێرا (واتسئەپ ١)`, url: `https://wa.me/9647505299118?text=${enc}` },
-          { text: `🛒 داواکردنی خێرا (واتسئەپ ٢)`, url: `https://wa.me/9647507586992?text=${enc}` }
+          { text: `💬 داواکردن لە واتسئاپ`, url: `https://wa.me/9647519496848?text=${enc}` },
+          { text: `📞 پەیوەندی: ${LTR}0750 758 6992`, url: 'https://wa.me/9647507586992' }
         ],
         [
-          { text: `📞 ${LTR}0750 529 9118`, url: 'https://wa.me/9647505299118' },
-          { text: `📞 ${LTR}0750 758 6992`, url: 'https://wa.me/9647507586992' }
-        ],
-        [
-          { text: `🌐 بینین لە وێبسایت: vertex1.tech`, url: directUrl || 'https://vertex1.tech' }
+          { text: `🌐 بینین لە وێبسایت: vertex1.tech`, url: directUrl || 'https://vertex1.tech' },
+          { text: `📢 چەناڵی تێلیگرام`, url: 'https://t.me/vertexiqzone' }
         ]
       ]
     };
@@ -66,8 +63,9 @@ class ChannelPublisher {
     msg += `---------------------------------\n`;
     msg += `📍 <b>ناونیشان:</b> هەولێر - هەرێمی کوردستان، عێراق\n`;
     msg += `🌐 <b>وێبسایت:</b> <a href="https://vertex1.tech">${LTR}vertex1.tech</a>\n`;
-    msg += `📞 <b>پەیوەندی و تەلەفۆن:</b> <code>${LTR}0750 758 6992</code> | <code>${LTR}0750 529 9118</code>\n`;
-    msg += `💬 <b>واتسئەپ:</b> <code>${LTR}+964 750 758 6992</code> | <code>${LTR}+964 750 529 9118</code>\n`;
+    msg += `📢 <b>چەناڵی تێلیگرام:</b> <a href="https://t.me/vertexiqzone">${LTR}@vertexiqzone</a>\n`;
+    msg += `📞 <b>پەیوەندی و فرۆشتن:</b> <code>${LTR}0750 758 6992</code>\n`;
+    msg += `💬 <b>واتسئاپ و بۆت:</b> <code>${LTR}+964 751 949 6848</code>\n`;
     msg += `✉️ <b>ئیمەیڵ:</b> vertexiqzone@gmail.com\n\n`;
     msg += `🚚 <i>تێبینی: گەیاندن بەردەستە بۆ هەموو شارەکان (گەیاندن بێ بەرامبەر نییە - بە کرێی گواستنەوەی ئاسایی).</i>`;
 
@@ -138,7 +136,7 @@ class ChannelPublisher {
 
     caption += `💵 <b>نرخ:</b> <b>$${priceUsd.toFixed(2)}</b> (~<b>${priceIqd.toLocaleString()}</b> دینار)\n\n`;
     caption += `🚚 <i>تێبینی: گەیاندن بەردەستە بۆ هەموو شارەکان (گەیاندن بێ بەرامبەر نییە - بە کرێی گواستنەوەی ئاسایی).</i>\n`;
-    caption += `📞 پەیوەندی و داواکردن: <code>${LTR}0750 529 9118</code> | <code>${LTR}0750 758 6992</code>`;
+    caption += `📞 پەیوەندی و داواکردن: <code>${LTR}0750 758 6992</code> | 💬 واتسئاپ: <code>${LTR}0751 949 6848</code>`;
 
     // Locate full-quality photo
     let photoPath = null;
@@ -188,21 +186,19 @@ class ChannelPublisher {
     caption += `💵 <b>Market Exchange Rate:</b> $100 = <b>${(currentRate * 100).toLocaleString()} IQD</b> (1$ = ${currentRate.toLocaleString()} IQD)\n`;
     caption += `🔄 Live Zoho Books pricing synchronized.\n\n`;
     caption += `🌐 <b>Website:</b> <a href="https://vertex1.tech">vertex1.tech</a>\n`;
-    caption += `📞 <b>Direct Inquiries:</b> <code>+964 750 758 6992</code> &bull; <code>+964 750 529 9118</code>\n\n`;
+    caption += `📢 <b>Telegram:</b> <a href="https://t.me/vertexiqzone">@vertexiqzone</a>\n`;
+    caption += `📞 <b>Direct Inquiries:</b> <code>+964 750 758 6992</code> &bull; <b>WhatsApp:</b> <code>+964 751 949 6848</code>\n\n`;
     caption += `<i>Download the attached PDF document for complete models, specifications and pricing.</i>`;
 
     const englishButtons = {
       inline_keyboard: [
         [
-          { text: '💬 WhatsApp 1', url: 'https://wa.me/9647507586992?text=Hello%2C%20I%20would%20like%20to%20inquire%20about%20Vertex%20products.' },
-          { text: '💬 WhatsApp 2', url: 'https://wa.me/9647505299118?text=Hello%2C%20I%20would%20like%20to%20inquire%20about%20Vertex%20products.' }
+          { text: '💬 WhatsApp Bot (0751 949 6848)', url: 'https://wa.me/9647519496848?text=Hello%2C%20I%20would%20like%20to%20inquire%20about%20Vertex%20products.' },
+          { text: '📞 Sales: +964 750 758 6992', url: 'https://wa.me/9647507586992' }
         ],
         [
-          { text: '📞 Call 1: +964 750 758 6992', url: 'https://wa.me/9647507586992' },
-          { text: '📞 Call 2: +964 750 529 9118', url: 'https://wa.me/9647505299118' }
-        ],
-        [
-          { text: '🌐 Official Website (vertex1.tech)', url: 'https://vertex1.tech' }
+          { text: '🌐 Official Website (vertex1.tech)', url: 'https://vertex1.tech' },
+          { text: '📢 Telegram Channel', url: 'https://t.me/vertexiqzone' }
         ]
       ]
     };

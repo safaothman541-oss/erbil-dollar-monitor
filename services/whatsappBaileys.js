@@ -15,8 +15,11 @@ const config = require('../config');
 const dollarScraper = require('./dollarScraper');
 
 const PHONE_1 = '\u200E0750 758 6992';
-const PHONE_2 = '\u200E0750 529 9118';
+const PHONE_BOT = '\u200E0751 949 6848';
+const WEBSITE_URL = 'https://vertex1.tech';
+const TELEGRAM_URL = 'https://t.me/vertexiqzone';
 const DELIVERY_NOTE = 'گەیاندن بەردەستە بۆ هەموو شارەکان (گەیاندن بێ بەرامبەر نییە - بە کرێی گواستنەوەی ئاسایی)';
+const FOOTER = `🚗 ${DELIVERY_NOTE}\n📞 پەیوەندی و فرۆشتن: ${PHONE_1}\n💬 واتسئاپ و بۆت: ${PHONE_BOT}\n🌐 ماڵپەڕ: ${WEBSITE_URL}\n📢 تێلیگرام: ${TELEGRAM_URL}`;
 
 class WhatsAppBaileys {
   constructor() {
@@ -178,7 +181,7 @@ class WhatsAppBaileys {
 
       // 1. WhatsApp About Status
       try {
-        await this.sock.updateProfileStatus('🏢 کۆمپانیای VERTEX بۆ کەرەستەی POS و مارکێت | 📞 0750 529 9118');
+        await this.sock.updateProfileStatus('🏢 کۆمپانیای VERTEX بۆ کەرەستەی POS و مارکێت | 📞 0750 758 6992');
         console.log('✅ [Baileys] نووسینی About لەسەر واتسئاپ دانرا.');
       } catch (e) {
         console.warn('[Baileys] updateProfileStatus note:', e.message);
@@ -235,7 +238,10 @@ class WhatsAppBaileys {
     welcome += `• بنووسە *«ئۆردەر»* ➔ بۆ داواکردن و کڕین\n`;
     welcome += `• یان ڕاستەوخۆ *ناوی هەر کاڵایەک* بنووسە تا زانیاری و نرخەکەی ببینیت!\n\n`;
     welcome += `🚗 *گەیاندن:* بۆ هەموو شارەکان بەردەستە (گەیاندن بێ بەرامبەر نییە - بە کرێی گواستنەوەی ئاسایی).\n`;
-    welcome += `📞 *پەیوەندی بەپەلە:* ${PHONE_1} | ${PHONE_2}`;
+    welcome += `📞 *پەیوەندی و فرۆشتن:* ${PHONE_1}\n`;
+    welcome += `💬 *واتسئاپ و بۆت:* ${PHONE_BOT}\n`;
+    welcome += `🌐 *ماڵپەڕی فەرمی:* ${WEBSITE_URL}\n`;
+    welcome += `📢 *چەناڵی تێلیگرام:* ${TELEGRAM_URL}`;
 
     await this.sock.sendMessage(remoteJid, { text: welcome });
   }
@@ -328,8 +334,7 @@ class WhatsAppBaileys {
       reply += `• *Label 50×25mm:* *$2.00* (~${Math.round(2 * currentRate).toLocaleString()} دینار)\n`;
       reply += `• *Label 38×25mm:* *$2.00* (~${Math.round(2 * currentRate).toLocaleString()} دینار)\n\n`;
 
-      reply += `🚗 ${DELIVERY_NOTE}\n`;
-      reply += `📞 داواکردن و کڕین: ${PHONE_1} | ${PHONE_2}`;
+      reply += FOOTER;
 
       const photoPath = path.join(__dirname, '..', 'assets', 'products', 'panda_80_80.png');
       await replyWithPhotoOrText(remoteJid, reply, photoPath);
@@ -365,8 +370,7 @@ class WhatsAppBaileys {
       reply += `🔹 *Zywell M04 Portable Printer:*\n`;
       reply += `💰 نرخ: *$80.00* (~${Math.round(80 * currentRate).toLocaleString()} دینار)\n\n`;
 
-      reply += `🚗 ${DELIVERY_NOTE}\n`;
-      reply += `📞 داواکردن: ${PHONE_1} | ${PHONE_2}`;
+      reply += FOOTER;
 
       const photoPath = path.join(__dirname, '..', 'assets', 'products', 'novex_8370.png');
       await replyWithPhotoOrText(remoteJid, reply, photoPath);
@@ -395,8 +399,7 @@ class WhatsAppBaileys {
       reply += `• بۆ لەیبڵی سەر ڕەف، بارکۆد و ستیکەری کۆگا\n`;
       reply += `💰 نرخ: *$95.00* (~${Math.round(95 * currentRate).toLocaleString()} دینار)\n\n`;
 
-      reply += `🚗 ${DELIVERY_NOTE}\n`;
-      reply += `📞 داواکردن: ${PHONE_1} | ${PHONE_2}`;
+      reply += FOOTER;
 
       const photoPath = path.join(__dirname, '..', 'assets', 'products', 'zebra_printer.png');
       await replyWithPhotoOrText(remoteJid, reply, photoPath);
@@ -436,8 +439,7 @@ class WhatsAppBaileys {
       reply += `• سکانەری وایەردار بە کوالێتی بەرز بۆ کاشێر\n`;
       reply += `💰 نرخ: *$50.00* (~${Math.round(50 * currentRate).toLocaleString()} دینار)\n\n`;
 
-      reply += `🚗 ${DELIVERY_NOTE}\n`;
-      reply += `📞 داواکردن: ${PHONE_1} | ${PHONE_2}`;
+      reply += FOOTER;
 
       const photoPath = path.join(__dirname, '..', 'assets', 'products', 'honeywell_orbit.png');
       await replyWithPhotoOrText(remoteJid, reply, photoPath);
@@ -455,8 +457,7 @@ class WhatsAppBaileys {
       reply += `• پۆرتی RJ11 بۆ بەستنەوە بە پرینتەر (خۆکارانە دەکرێتەوە لە کاتی دەرچوونی وەسڵ)\n`;
       reply += `• کلیلی تایبەتی سەلامەتی\n\n`;
       reply += `💰 نرخ: *$45.00* (~${Math.round(45 * currentRate).toLocaleString()} دینار)\n`;
-      reply += `🚗 ${DELIVERY_NOTE}\n`;
-      reply += `📞 داواکردن: ${PHONE_1} | ${PHONE_2}`;
+      reply += FOOTER;
 
       const photoPath = path.join(__dirname, '..', 'assets', 'products', 'cash_drawer.png');
       await replyWithPhotoOrText(remoteJid, reply, photoPath);
@@ -486,8 +487,7 @@ class WhatsAppBaileys {
       reply += `🔹 *HP Zbook Workstation:* *$230.00*\n`;
       reply += `🔹 *Monitor LG 24-inch (24MS500-B):* *$95.00*\n\n`;
 
-      reply += `🚗 ${DELIVERY_NOTE}\n`;
-      reply += `📞 داواکردن: ${PHONE_1} | ${PHONE_2}`;
+      reply += FOOTER;
 
       await this.sock.sendMessage(remoteJid, { text: reply });
       session.lastInteractionAt = now;
@@ -501,9 +501,11 @@ class WhatsAppBaileys {
       let reply = `💵 *نوێترین نرخی دۆلار لە بازاڕی هەولێر:*\n\n`;
       reply += `• 100$ = *${rateStr}*\n`;
       reply += `• 1$ = *${currentRate.toLocaleString()} دینار*\n\n`;
-      reply += `🏢 *کۆمپانیای Vertex*\n`;
-      reply += `🌐 کەناڵی فەرمی: https://t.me/vertexiqzone\n`;
-      reply += `📞 فرۆشتن: ${PHONE_1} | ${PHONE_2}`;
+      reply += `🏢 *کۆمپانیای VERTEX*\n`;
+      reply += `🌐 ماڵپەڕ: ${WEBSITE_URL}\n`;
+      reply += `📢 چەناڵی تێلیگرام: ${TELEGRAM_URL}\n`;
+      reply += `📞 پەیوەندی و فرۆشتن: ${PHONE_1}\n`;
+      reply += `💬 واتسئاپ و بۆت: ${PHONE_BOT}`;
       await this.sock.sendMessage(remoteJid, { text: reply });
       session.lastInteractionAt = now;
       return;
@@ -518,9 +520,8 @@ class WhatsAppBaileys {
       reply += `⏰ *کاتی دەوامی فەرمی:* ٩:٠٠ی بەیانی تا ٧:٠٠ی ئێوارە (شەممە تا پێنجشەممە)\n`;
       reply += `🌐 *وێبسایتی فەرمی:* https://vertex1.tech\n`;
       reply += `📢 *کەناڵی تێلیگرام:* https://t.me/vertexiqzone\n\n`;
-      reply += `📞 *تەلەفۆن و واتسئاپ:* \n`;
-      reply += `• ${PHONE_1}\n`;
-      reply += `• ${PHONE_2}\n\n`;
+      reply += `📞 *تەلەفۆن و پەیوەندی:* ${PHONE_1}\n`;
+      reply += `💬 *واتسئاپ و بۆت:* ${PHONE_BOT}\n\n`;
       reply += `🚗 *گەیاندن بەردەستە بۆ هەموو شارەکانی کوردستان و عێراق* (گەیاندن بێ بەرامبەر نییە - بە کرێی گواستنەوەی ئاسایی).`;
 
       await this.sock.sendMessage(remoteJid, { text: reply });
@@ -543,7 +544,7 @@ class WhatsAppBaileys {
       reply += `6️⃣ سیستەمی POS و کۆمپیوتەر\n`;
       reply += `7️⃣ نرخی دۆلار\n`;
       reply += `8️⃣ پەیوەندی و ناونیشان\n\n`;
-      reply += `📞 پرسیار و فرۆشتن: ${PHONE_1} | ${PHONE_2}`;
+      reply += `📞 پەیوەندی و فرۆشتن: ${PHONE_1}\n💬 واتسئاپ و بۆت: ${PHONE_BOT}`;
       await this.sock.sendMessage(remoteJid, { text: reply });
       session.lastInteractionAt = now;
       return;
@@ -560,8 +561,9 @@ class WhatsAppBaileys {
       orderReply += `3️⃣ *ناونیشانی تەواو* (شار، گەڕەک، نزیکترین شوێنی دیار)\n\n`;
       orderReply += `🚗 *گەیاندن:*\n${DELIVERY_NOTE}\n\n`;
       orderReply += `📞 تیمی فرۆشتنمان ڕاستەوخۆ پەیوەندیت پێوە دەکەن بۆ پشتڕاستکردنەوە:\n`;
-      orderReply += `• ${PHONE_1}\n`;
-      orderReply += `• ${PHONE_2}`;
+      orderReply += `• پەیوەندی و فرۆشتن: ${PHONE_1}\n`;
+      orderReply += `• واتسئاپ و بۆت: ${PHONE_BOT}\n\n`;
+      orderReply += `🌐 ماڵپەڕ: ${WEBSITE_URL} | 📢 چەناڵی تێلیگرام: ${TELEGRAM_URL}`;
       await this.sock.sendMessage(remoteJid, { text: orderReply });
       session.lastInteractionAt = now;
       return;
@@ -576,8 +578,9 @@ class WhatsAppBaileys {
       deliveryReply += `• *تێبینی گرنگ:* گەیاندن بێ بەرامبەر نییە - بە کرێی گواستنەوەی ئاسایی و گونجاو بەپێی شارەکە حساب دەکرێت.\n`;
       deliveryReply += `• *ماوەی گەیشتن:* ناو هەولێر هەمان ڕۆژ یان ڕۆژی دواتر؛ بۆ شارەکانی تر لە ماوەی ٢٤ بۆ ٤٨ کاتژمێردا دەگات.\n\n`;
       deliveryReply += `📞 بەشی گەیاندن و فرۆشتن:\n`;
-      deliveryReply += `• ${PHONE_1}\n`;
-      deliveryReply += `• ${PHONE_2}`;
+      deliveryReply += `• پەیوەندی و فرۆشتن: ${PHONE_1}\n`;
+      deliveryReply += `• واتسئاپ و بۆت: ${PHONE_BOT}\n\n`;
+      deliveryReply += `🌐 ماڵپەڕ: ${WEBSITE_URL} | 📢 چەناڵی تێلیگرام: ${TELEGRAM_URL}`;
       await this.sock.sendMessage(remoteJid, { text: deliveryReply });
       session.lastInteractionAt = now;
       return;
@@ -593,7 +596,7 @@ class WhatsAppBaileys {
           document: fs.readFileSync(pdfPath),
           fileName: 'Vertex_POS_Price_List_2026.pdf',
           mimetype: 'application/pdf',
-          caption: `📄 *لیستی فەرمی نرخەکانی کۆمپانیای VERTEX (PDF)*\n\nتەواوی کاڵاکانی کۆمپانیای VERTEX بەپێی کۆگای زۆهۆ (Zoho Books) لەگەڵ وێنە و تایبەتمەندییەکان.\n🚗 ${DELIVERY_NOTE}\n📞 ${PHONE_1} | ${PHONE_2}`
+          caption: `📄 *لیستی فەرمی نرخەکانی کۆمپانیای VERTEX (PDF)*\n\nتەواوی کاڵاکانی کۆمپانیای VERTEX بەپێی کۆگای زۆهۆ (Zoho Books) لەگەڵ وێنە و تایبەتمەندییەکان.\n${FOOTER}`
         });
         session.lastInteractionAt = now;
         return;
@@ -642,8 +645,7 @@ class WhatsAppBaileys {
       }
 
       caption += `💰 *نرخ:* *$${topMatch.priceUsd.toFixed(2)}* (~*${priceIqd.toLocaleString()}* دینار)\n\n`;
-      caption += `🚗 ${DELIVERY_NOTE}\n`;
-      caption += `📞 داواکردن و کڕین: ${PHONE_1} | ${PHONE_2}`;
+      caption += FOOTER;
 
       const photoPath = `C:\\Users\\SAFA\\vertex-ads\\out\\approve_${topMatch.shortId}.png`;
       await replyWithPhotoOrText(remoteJid, caption, photoPath);
@@ -658,7 +660,9 @@ class WhatsAppBaileys {
     guideMsg += `💡 دەتوانیت ژمارەیەک هەڵبژێریت یان ناوی کاڵاکە بنووسیت:\n`;
     guideMsg += `• بنووسە *«دۆلار»* بۆ نرخی بازاڕ\n`;
     guideMsg += `• بنووسە *«کەتەلۆگ»* بۆ بینینی هەموو ٩ بەشەکە\n\n`;
-    guideMsg += `📞 پەیوەندی بەپەلە: ${PHONE_1} | ${PHONE_2}`;
+    guideMsg += `📞 پەیوەندی و فرۆشتن: ${PHONE_1}\n`;
+    guideMsg += `💬 واتسئاپ و بۆت: ${PHONE_BOT}\n`;
+    guideMsg += `🌐 ماڵپەڕ: ${WEBSITE_URL} | 📢 تێلیگرام: ${TELEGRAM_URL}`;
 
     await this.sock.sendMessage(remoteJid, { text: guideMsg });
     session.lastInteractionAt = now;
@@ -841,11 +845,12 @@ class WhatsAppBaileys {
       <div style="background: rgba(39, 39, 42, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 18px; margin-bottom: 20px; text-align: right; font-size: 14px; line-height: 1.8;">
         <div style="color: #38bdf8; font-weight: 700; margin-bottom: 8px;">🏢 ناسنامە و پرۆفایلی واتسئاپ بزنس:</div>
         <div>• <b>ناو:</b> کۆمپانیای VERTEX بۆ کەرەستەی POS و مارکێت</div>
-        <div>• <b>دەربارە (About):</b> 🏢 کۆمپانیای VERTEX بۆ کەرەستەی POS و مارکێت | 📞 0750 529 9118</div>
+        <div>• <b>دەربارە (About):</b> 🏢 کۆمپانیای VERTEX بۆ کەرەستەی POS و مارکێت | 📞 0750 758 6992</div>
         <div>• <b>کەتەلۆگ:</b> ٤١ بەرهەمی فەرمی بە وێنەی 2K و نرخی ڕاستەوخۆ بە دۆلار و دینار</div>
         <div>• <b>دەوامی فەرمی:</b> ٩:٠٠ی بەیانی تا ٧:٠٠ی ئێوارە (شەممە تا پێنجشەممە)</div>
         <div>• <b>گەیاندن:</b> هەموو شارەکان بە کرێی ئاسایی (گەیاندن بێ بەرامبەر نییە)</div>
-        <div>• <b>فرۆشتن:</b> \u200E0750 529 9118 | \u200E0750 758 6992</div>
+        <div>• <b>فرۆشتن و پەیوەندی:</b> \u200E0750 758 6992 | <b>واتسئاپ و بۆت:</b> \u200E0751 949 6848</div>
+        <div>• <b>ماڵپەڕ:</b> https://vertex1.tech | <b>چەناڵی تێلیگرام:</b> https://t.me/vertexiqzone</div>
       </div>
 
       <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 16px;">

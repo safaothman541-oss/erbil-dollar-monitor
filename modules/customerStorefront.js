@@ -457,20 +457,21 @@ class CustomerStorefront {
   async sendContactInfo(chatId) {
     let msg = `🏢 <b>کۆمپانیای Vertex بۆ بازرگانی گشتی و تەکنەلۆژیا</b>\n\n`;
     msg += `🌐 <b>وێبسایتی فەرمی:</b> <a href="https://vertex1.tech">vertex1.tech</a>\n`;
-    msg += `📍 <b>ناونیشان:</b> هەرێمی کوردستان - هەولێر\n`;
-    msg += `📞 <b>پەیوەندی و تەلەفۆن:</b> <code>\u200E0750 758 6992</code> | <code>\u200E0750 529 9118</code>\n`;
-    msg += `💬 <b>واتسئەپ:</b> <code>\u200E+964 750 758 6992</code> | <code>\u200E+964 750 529 9118</code>\n`;
+    msg += `📞 <b>پەیوەندی و فرۆشتن:</b> <code>\u200E0750 758 6992</code>\n`;
+    msg += `💬 <b>واتسئاپ و بۆت:</b> <code>\u200E+964 751 949 6848</code>\n`;
+    msg += `📢 <b>چەناڵی تێلیگرام:</b> <a href="https://t.me/vertexiqzone">@vertexiqzone</a>\n`;
     msg += `✉️ <b>ئیمەیڵ:</b> vertexiqzone@gmail.com\n`;
     msg += `⏰ <b>کاتی دەوام:</b> هەموو ڕۆژێک لە 8:30 بەیانی تا 7:00 ئێوارە (جگە لە هەینی)\n`;
     msg += `🚚 <b>گەیاندن:</b> بەردەستە بۆ هەموو مارکێت، چێشتخانە و دەرمانخانەکانی هەولێر، سلێمانی، دهۆک، و سەرجەم شارەکان (بە کرێی گواستنەوەی ئاسایی).\n`;
 
     const contactButtons = [
       [
-        { text: '💬 واتسئەپ (١)', url: 'https://wa.me/9647507586992' },
-        { text: '💬 واتسئەپ (٢)', url: 'https://wa.me/9647505299118' }
+        { text: '💬 واتسئاپ و بۆت', url: 'https://wa.me/9647519496848' },
+        { text: '📞 پەیوەندی فرۆشتن', url: 'https://wa.me/9647507586992' }
       ],
       [
-        { text: '🌐 سەردانی وێبسایت (vertex1.tech)', url: 'https://vertex1.tech' }
+        { text: '🌐 سەردانی وێبسایت (vertex1.tech)', url: 'https://vertex1.tech' },
+        { text: '📢 چەناڵی تێلیگرام', url: 'https://t.me/vertexiqzone' }
       ],
       [{ text: '🔙 گەڕانەوە بۆ فڕۆشگا', callback_data: 'cat:home' }]
     ];

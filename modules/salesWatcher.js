@@ -145,8 +145,8 @@ async function checkNewInvoices(options = {}) {
         console.warn(`[SalesWatcher] Note: Customer WhatsApp dispatch skipped (${waCustErr.message})`);
       }
 
-      // 2. Send instant Admin Alerts to Safa & Team (0750 529 9118 & 0750 758 6992)
-      const adminPhones = config.WHATSAPP.ADMIN_PHONES || ['9647505299118', '9647507586992'];
+      // 2. Send instant Admin Alerts to Safa & Team (0750 758 6992 & 0751 949 6848)
+      const adminPhones = config.WHATSAPP.ADMIN_PHONES || ['9647507586992', '9647519496848'];
       for (const adminPhone of adminPhones) {
         try {
           await whatsappService.sendKurdishInvoice(adminPhone, {

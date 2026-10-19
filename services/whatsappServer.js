@@ -5,9 +5,10 @@ const whatsappService = require('./whatsappService');
 const dollarScraper = require('./dollarScraper');
 const zohoService = require('./zohoService');
 
-// Phone numbers with LTR mark to prevent reversal
 const PHONE_1 = '\u200E0750 758 6992';
-const PHONE_2 = '\u200E0750 529 9118';
+const PHONE_BOT = '\u200E0751 949 6848';
+const WEBSITE_URL = 'https://vertex1.tech';
+const TELEGRAM_URL = 'https://t.me/vertexiqzone';
 const DELIVERY_NOTE = 'گەیاندن بەردەستە بۆ هەموو شارەکان (گەیاندن بێ بەرامبەر نییە - بە کرێی گواستنەوەی ئاسایی)';
 
 // In-memory customer sessions to prevent spam and allow smooth human handoff
@@ -212,8 +213,9 @@ class WhatsAppServer {
       let reply = `💵 *نوێترین نرخی دۆلار لە بازاڕی هەولێر:*\n\n`;
       reply += `• 100$ = *${rateStr}*\n`;
       reply += `• 1$ = *${perDollar.toLocaleString()} دینار*\n\n`;
-      reply += `🏢 *کۆمپانیای Vertex*\n`;
-      reply += `📞 فرۆشتن: ${PHONE_1} | ${PHONE_2}`;
+      reply += `🏢 *کۆمپانیای VERTEX*\n`;
+      reply += `📞 پەیوەندی و فرۆشتن: ${PHONE_1} | 💬 واتسئاپ: ${PHONE_BOT}\n`;
+      reply += `🌐 ماڵپەڕ: ${WEBSITE_URL} | 📢 تێلیگرام: ${TELEGRAM_URL}`;
 
       await whatsappService.sendText(from, reply);
       session.lastInteractionAt = now;
@@ -227,8 +229,9 @@ class WhatsAppServer {
       reply += `👉 https://t.me/vertexiqzone\n\n`;
       reply += `🚗 *گەیاندن:*\n${DELIVERY_NOTE}\n\n`;
       reply += `📞 *پەیوەندی ڕاستەوخۆ بە فرۆشتن:*\n`;
-      reply += `• ${PHONE_1}\n`;
-      reply += `• ${PHONE_2}`;
+      reply += `• پەیوەندی: ${PHONE_1}\n`;
+      reply += `• واتسئاپ و بۆت: ${PHONE_BOT}\n\n`;
+      reply += `🌐 ماڵپەڕ: ${WEBSITE_URL} | 📢 چەناڵی تێلیگرام: ${TELEGRAM_URL}`;
 
       await whatsappService.sendText(from, reply);
       session.lastInteractionAt = now;
@@ -243,7 +246,7 @@ class WhatsAppServer {
       reply += `• کارتۆنی ٥٠ دانەیی\n\n`;
       reply += `💰 نرخ: *$0.86* بۆ هەر دانەیەک\n`;
       reply += `🚗 ${DELIVERY_NOTE}\n\n`;
-      reply += `📞 داواکردن: ${PHONE_1} | ${PHONE_2}`;
+      reply += `📞 داواکردن و کڕین: ${PHONE_1} | واتسئاپ: ${PHONE_BOT}`;
 
       await whatsappService.sendText(from, reply);
       session.lastInteractionAt = now;
@@ -257,7 +260,7 @@ class WhatsAppServer {
       reply += `• قاشکەری ئۆتۆماتیکی (Auto-Cutter)\n\n`;
       reply += `💰 نرخ: *$53.00*\n`;
       reply += `🚗 ${DELIVERY_NOTE}\n\n`;
-      reply += `📞 داواکردن: ${PHONE_1} | ${PHONE_2}`;
+      reply += `📞 داواکردن و کڕین: ${PHONE_1} | واتسئاپ: ${PHONE_BOT}`;
 
       await whatsappService.sendText(from, reply);
       session.lastInteractionAt = now;
@@ -284,8 +287,9 @@ class WhatsAppServer {
       welcome += `• بنووسە ناوی کاڵاکە (وەک *Panda* یان *Novex*) بۆ بینینی مواسەفات\n\n`;
       welcome += `🚗 *گەیاندن:*\n${DELIVERY_NOTE}\n\n`;
       welcome += `📞 *پەیوەندی ڕاستەوخۆ بە فرۆشتن:*\n`;
-      welcome += `• ${PHONE_1}\n`;
-      welcome += `• ${PHONE_2}`;
+      welcome += `• پەیوەندی: ${PHONE_1}\n`;
+      welcome += `• واتسئاپ و بۆت: ${PHONE_BOT}\n\n`;
+      welcome += `🌐 ماڵپەڕ: ${WEBSITE_URL} | 📢 چەناڵی تێلیگرام: ${TELEGRAM_URL}`;
 
       await whatsappService.sendText(from, welcome);
       session.welcomeSentAt = now;
@@ -297,8 +301,8 @@ class WhatsAppServer {
     // Instead of repeating the welcome banner like a robot, politely notify customer that sales agent will answer
     let handoffMsg = `بەڕێزم پەیامەکەت گەیشت، بە زووترین کات کارمەندانی فرۆشتنمان لێرە وەڵامت دەدەنەوە.\n\n`;
     handoffMsg += `📞 ئەگەر داواکاری بەپەلەت هەیە دەتوانیت پەیوەندی بکەیت بە:\n`;
-    handoffMsg += `• ${PHONE_1}\n`;
-    handoffMsg += `• ${PHONE_2}`;
+    handoffMsg += `• پەیوەندی و فرۆشتن: ${PHONE_1}\n`;
+    handoffMsg += `• واتسئاپ و بۆت: ${PHONE_BOT}`;
 
     await whatsappService.sendText(from, handoffMsg);
 

@@ -201,9 +201,9 @@ async function generateCartonStickerPdf(outputPath) {
     <!-- Footer -->
     <div class="footer">
       <div style="font-weight: 800; color: #1E3A8A; font-size: 7.2pt; margin-bottom: 0.5mm;">
-        🌐 Web: vertex1.tech &nbsp;|&nbsp; 📞 Tel: <span dir="ltr">0750 758 6992 - 0750 529 9118</span>
+        🌐 Web: vertex1.tech &nbsp;|&nbsp; 📞 Tel: <span dir="ltr">0750 758 6992</span>
       </div>
-      <div><b>WhatsApp:</b> <span dir="ltr">+964 750 758 6992 / +964 750 529 9118</span> &nbsp;|&nbsp; <b>Telegram:</b> @vertexiqzone</div>
+      <div><b>WhatsApp & Bot:</b> <span dir="ltr">+964 751 949 6848</span> &nbsp;|&nbsp; <b>Telegram:</b> @vertexiqzone</div>
       <div style="font-size: 5.8pt; color: #94A3B8; margin-top: 0.5mm;">
         Vertex Company • Erbil, Kurdistan Region, Iraq • vertexiqzone@gmail.com
       </div>

@@ -207,7 +207,7 @@ async function generatePriceListPdf(outputPath) {
         ${logoBase64 ? `<img src="${logoBase64}" style="height: 30px; display: block; margin-bottom: 2px;" alt="VERTEX">` : `<div style="font-size: 18px; font-weight: 900; color: #0F172A;">VERTEX COMPANY</div>`}
         <div class="brand-sub">General Trading, POS Hardware & Thermal Paper Solutions</div>
         <div style="font-size: 8.5px; color: #1E40AF; font-weight: 800; margin-top: 1px;">
-          Website: <a href="https://vertex1.tech" style="color: #1E40AF; text-decoration: none;">vertex1.tech</a> &nbsp;|&nbsp; Tel: <span dir="ltr">+964 750 758 6992 &bull; +964 750 529 9118</span>
+          Website: <a href="https://vertex1.tech" style="color: #1E40AF; text-decoration: none;">vertex1.tech</a> &nbsp;|&nbsp; Tel: <span dir="ltr">+964 750 758 6992 &bull; +964 751 949 6848</span>
         </div>
         <div style="font-size: 8px; color: #64748B;">
           Erbil, Kurdistan Region, Iraq &nbsp;|&nbsp; Telegram: @vertexiqzone &nbsp;|&nbsp; Single Source of Truth: Zoho Books
@@ -268,7 +268,7 @@ async function generatePriceListPdf(outputPath) {
         COMMERCIAL SUPPLY & DIRECT SALES:
       </div>
       <div style="font-size: 8px; color: #4B5563;">
-        Official WhatsApp & Calls: <span dir="ltr"><b>+964 750 758 6992</b> &bull; <b>+964 750 529 9118</b></span> &bull; Website: <b>vertex1.tech</b>
+        Official WhatsApp & Calls: <span dir="ltr"><b>+964 750 758 6992</b> &bull; <b>+964 751 949 6848</b></span> &bull; Website: <b>vertex1.tech</b> &bull; Telegram: <b>@vertexiqzone</b>
       </div>
       <div style="font-size: 7.5px; color: #64748B; margin-top: 1px;">
         Delivery available to all cities across Kurdistan Region and Iraq (Standard transit fees apply).
