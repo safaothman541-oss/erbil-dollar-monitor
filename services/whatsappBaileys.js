@@ -669,15 +669,37 @@ class WhatsAppBaileys {
     console.log(`[Baileys] Guidance sent to ${fromPhone}.`);
   }
 
+  cleanPhone(to) {
+    let cleanTo = String(to).replace(/[^0-9]/g, '');
+    if (cleanTo.startsWith('00964')) cleanTo = cleanTo.substring(2);
+    else if (cleanTo.startsWith('07')) cleanTo = '964' + cleanTo.substring(1);
+    else if (cleanTo.startsWith('7') && cleanTo.length === 10) cleanTo = '964' + cleanTo;
+    return cleanTo;
+  }
+
+  async checkNumberOnWhatsApp(phone) {
+    if (!this.isConnected || !this.sock) {
+      throw new Error('WhatsApp bot is not connected yet.');
+    }
+    const cleanTo = this.cleanPhone(phone);
+    const remoteJid = `${cleanTo}@s.whatsapp.net`;
+    const results = await this.sock.onWhatsApp(remoteJid);
+    if (Array.isArray(results) && results.length > 0 && results[0].exists) {
+      return results[0].jid;
+    }
+    return null;
+  }
+
   // Send message directly to any phone number
   async sendText(to, text) {
     if (!this.isConnected || !this.sock) {
       throw new Error('WhatsApp bot is not connected yet.');
     }
-    const cleanTo = String(to).replace(/[^0-9]/g, '');
-    const remoteJid = `${cleanTo}@s.whatsapp.net`;
+    const cleanTo = this.cleanPhone(to);
+    const remoteJid = cleanTo.includes('@s.whatsapp.net') ? cleanTo : `${cleanTo}@s.whatsapp.net`;
     return this.sock.sendMessage(remoteJid, { text });
   }
+
 
   startHttpServer() {
     this.httpServer = http.createServer(async (req, res) => {
@@ -735,8 +757,43 @@ class WhatsAppBaileys {
         return;
       }
 
+      // API: Outreach Status
+      if (pathname === '/api/outreach/status') {
+        try {
+          const dailyOutreach = require('../modules/dailyOutreach');
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify(dailyOutreach.getStatus()));
+        } catch (e) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: e.message }));
+        }
+      }
+
+      // API: Trigger Outreach Batch
+      if (pathname === '/api/outreach/trigger' && req.method === 'POST') {
+        try {
+          const dailyOutreach = require('../modules/dailyOutreach');
+          let body = '';
+          req.on('data', c => body += c);
+          req.on('end', async () => {
+            let count = 100;
+            if (body) {
+              try { count = JSON.parse(body).count || 100; } catch(_) {}
+            }
+            dailyOutreach.runDailyBatch(count).catch(console.error);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: `Batch of ${count} started in background.` }));
+          });
+          return;
+        } catch (e) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: e.message }));
+        }
+      }
+
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end('Not Found');
+
     });
 
     this.httpServer.on('error', (err) => {

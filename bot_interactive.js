@@ -12,6 +12,7 @@ const stickerGenerator = require('./services/qrStickerGenerator');
 const channelPublisher = require('./modules/channelPublisher');
 const whatsappBaileys = require('./services/whatsappBaileys');
 const whatsappService = require('./services/whatsappService');
+const dailyOutreach = require('./modules/dailyOutreach');
 
 // Global Crash Prevention Watchdogs
 process.on('uncaughtException', (err) => {
@@ -24,6 +25,8 @@ process.on('unhandledRejection', (reason) => {
 let lastUpdateId = 0;
 let lastEveningReportDate = null;
 let lastPriceListDate = null;
+let lastOutreachDate = null;
+
 
 // Build Interactive Calculator Keyboards
 function getCalculatorKeyboard() {
@@ -481,6 +484,16 @@ async function backgroundCycle() {
       await channelPublisher.publishDailyPriceList(config.CHANNEL_ID, currentRate);
       lastPriceListDate = todayDateStr;
     }
+
+    // 5. Morning WhatsApp Daily Outreach check (9:00 AM Baghdad time)
+    if (baghdadHour === 9 && baghdadMinute < 15 && lastOutreachDate !== todayDateStr) {
+      console.log('[Background] Morning WhatsApp outreach time reached (09:00 Baghdad).');
+      lastOutreachDate = todayDateStr;
+      dailyOutreach.runDailyBatch(100).catch(err => {
+        console.error('[Background] Daily outreach error:', err.message);
+      });
+    }
+
 
   } catch (err) {
     console.error('[BackgroundCycle] Error:', err.message);
