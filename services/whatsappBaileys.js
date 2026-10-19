@@ -225,7 +225,7 @@ class WhatsAppBaileys {
     let welcome = `🌟 *بەخێربێن بۆ کۆمپانیای VERTEX*\n`;
     welcome += `دابینکردنی کاغەزی حەراری و سەرجەم کەرەستەکانی خاڵی فرۆش (POS) لە عێراق بەپێی سیستەمی فەرمی Zoho Books.\n\n`;
     welcome += `🤖 *ڕێبەری هۆشمەندی خێرا - هەر ژمارەیەک بنووسیت کەتەلۆگ و نرخەکانی دەبینیت:*\n\n`;
-    welcome += `1️⃣ 📄 *کاغەزی حەراری و لەیبڵ* (Panda 80×80, 80×19, 57×19 & Labels)\n`;
+    welcome += `1️⃣ 📄 *کاغەزی حەراری و لەیبڵ* (ڕۆڵی 80×80، 80×19، 57×19 و لەیبڵ)\n`;
     welcome += `2️⃣ 🖨 *پرینتەری پسوولەی کاشێر* (Novex 8370, Xprinter, Zywell, Portable)\n`;
     welcome += `3️⃣ 🏷 *پرینتەری ستیکەر و بارکۆد* (Zebra ZD230, HPRT, Zywell 910, Van Gold)\n`;
     welcome += `4️⃣ 🔫 *بارکۆد سکانەری خێرا* (Honeywell Orbit/HF680, Zebra DS2208, Henex)\n`;
@@ -280,9 +280,13 @@ class WhatsAppBaileys {
     // FIRST-TIME ONBOARDING & GUIDANCE (سەرەتا ڕێنمایی تەواو پێدەدات)
     // -------------------------------------------------------------
 
+    const isQuick1 = /^([1١]|1️⃣|یەک|یک)[\.\s]*$/i.test(lower) || lower === 'ژمارە 1' || lower === 'ژمارە ١';
+    const isQuick2 = /^([2٢]|2️⃣|دوو|دو|pdf|پیدیئێف)[\.\s]*$/i.test(lower) || lower === 'ژمارە 2' || lower === 'ژمارە ٢';
+    const isQuick3 = /^([3٣]|3️⃣|سێ)[\.\s]*$/i.test(lower) || lower === 'ژمارە 3' || lower === 'ژمارە ٣';
+
     const isFirstTime = !session.welcomeSentAt || (now - session.welcomeSentAt > 24 * 3600 * 1000);
 
-    if (isFirstTime) {
+    if (isFirstTime && !isQuick1 && !isQuick2 && !isQuick3) {
       session.welcomeSentAt = now;
       session.lastInteractionAt = now;
       this.saveSessions();
@@ -299,8 +303,6 @@ class WhatsAppBaileys {
       if (isPureGreeting) {
         return; // Master guide was already sent as the complete response!
       }
-      // If their first message ALSO asked for a specific item (e.g. "کاغەز", "پرینتەر", "دۆلار"),
-      // execution continues below to send that specific item right with it!
     }
 
     // Load showcase items
@@ -340,32 +342,118 @@ class WhatsAppBaileys {
     };
 
     // -------------------------------------------------------------
-        // -------------------------------------------------------------
-    // 1. CATEGORY 1: THERMAL PAPER & LABELS (Panda & Labels from Zoho Books)
+    // ⚡ QUICK NUMBER 1: ORDER RECEIPT PAPER (داواکردنی وەرەقەی کاشێر)
     // -------------------------------------------------------------
-    if (lower === '1' || lower.includes('کاغەز') || lower.includes('panda') || lower.includes('پانیدا') || lower.includes('8080') || lower.includes('رۆڵ') || lower.includes('لەیبڵ') || lower.includes('ستیکەر')) {
-      let reply = `🐼 *کاغەزی حەراری Panda و لەیبڵەکان (تۆمارکراو لە Zoho Books)*\n\n`;
-      reply += `📄 *ڕۆڵەکانی کاغەزی پسوولە:*\n`;
-      reply += `1️⃣ *Panda 80×80mm (کارتۆنی ٥٠ دانە):* *$1.25* بۆ هەر ڕۆڵێک (~${Math.round(1.25 * currentRate).toLocaleString()} دینار)\n`;
-      reply += `2️⃣ *Panda 80×19m:* *$0.65* (~${Math.round(0.65 * currentRate).toLocaleString()} دینار)\n`;
-      reply += `3️⃣ *Panda 57×19m (تەکسی و POS دەستی):* *$0.40* (~${Math.round(0.40 * currentRate).toLocaleString()} دینار)\n\n`;
+    if (isQuick1 || lower.includes('وەرەقە') || lower.includes('کاغەز') || lower.includes('8080') || lower.includes('رۆڵ')) {
+      let reply = `📄 *داواکردنی ڕاستەوخۆی ڕۆڵی وەرەقەی حەراری (Thermal Paper Rolls)*\n\n`;
+      reply += `بەرزترین کوالێتی وەرەقەی حەراری بەردەستە بە چاپی زۆر تۆخ و ڕوون، بێ گیربوون، و درێژی تەواو:\n\n`;
+      reply += `1️⃣ *قەبارەی 80×80 ملم (کارتۆنی ٥٠ دانەیی):*\n`;
+      reply += `• تایبەت بە پرینتەری پسوولەی کاشێر و مارکێت\n`;
+      reply += `• نرخی تاک: *$1.25* بۆ هەر دانەیەک (~${Math.round(1.25 * currentRate).toLocaleString()} دینار)\n`;
+      reply += `• کارتۆنی ٥٠ دانەیی: *$62.5* (~${Math.round(62.5 * currentRate).toLocaleString()} دینار)\n`;
+      reply += `• *بۆ نرخی کۆ و بەردەوام (Wholesale) داشکاندنی زۆر تایبەتمان هەیە!*\n\n`;
 
-      reply += `🏷 *ڕۆڵەکانی لەیبڵ و بارکۆد (Thermal Labels):*\n`;
-      reply += `• *Label 100×150mm (بۆ گەیاندن و کارگۆ):* *$11.00* (~${Math.round(11 * currentRate).toLocaleString()} دینار)\n`;
-      reply += `• *Label 100×100mm:* *$7.50* (~${Math.round(7.5 * currentRate).toLocaleString()} دینار)\n`;
-      reply += `• *Label 80×50mm (1000 دانەیی):* *$5.00* (~${Math.round(5 * currentRate).toLocaleString()} دینار)\n`;
-      reply += `• *Label 58×39mm (Chinese):* *$2.00* (~${Math.round(2 * currentRate).toLocaleString()} دینار)\n`;
-      reply += `• *Label 58×39mm (S):* *$1.10* (~${Math.round(1.1 * currentRate).toLocaleString()} دینار)\n`;
-      reply += `• *Label 50×25mm:* *$2.00* (~${Math.round(2 * currentRate).toLocaleString()} دینار)\n`;
-      reply += `• *Label 38×25mm:* *$2.00* (~${Math.round(2 * currentRate).toLocaleString()} دینار)\n\n`;
+      reply += `2️⃣ *قەبارەی 57×19 ملم (کارتۆنی ١٠٠ دانەیی):*\n`;
+      reply += `• تایبەت بە ئامێری مۆبایل پۆس (POS)، فاستپەی، و تەرازوو\n`;
+      reply += `• نرخی تاک: *$0.40* (~${Math.round(0.40 * currentRate).toLocaleString()} دینار)\n`;
+      reply += `• کارتۆنی ١٠٠ دانەیی: *$40.0* (~${Math.round(40 * currentRate).toLocaleString()} دینار)\n\n`;
 
-      reply += FOOTER;
+      reply += `3️⃣ *قەبارەی 80×19 ملم (کارتۆنی ٥٠ دانەیی):*\n`;
+      reply += `• تایبەت بە پرینتەری دەستی و مۆبایل\n`;
+      reply += `• نرخی تاک: *$0.65* (~${Math.round(0.65 * currentRate).toLocaleString()} دینار)\n\n`;
+
+      reply += `━━━━━━━━━━━━━━━━━━━━━\n`;
+      reply += `🚚 *بۆ داواکردن و گەیاندنی دەستبەجێ لە هەولێر:*\n`;
+      reply += `تکایە *چەند کارتۆنت پێویستە لەگەڵ ناونیشانەکەت بنووسە* لێرە تا تیمی گەیاندن دەستبەجێ بۆت بهێنێت.\n\n`;
+      reply += `📞 *پەیوەندی خێرا بە فرۆشتن:* ${PHONE_1}\n`;
+      reply += `💬 *واتسئاپ و بۆت:* ${PHONE_BOT}`;
 
       const photoPath = path.join(__dirname, '..', 'assets', 'products', 'panda_80_80.png');
       await replyWithPhotoOrText(remoteJid, reply, photoPath);
+
+      // Alert Telegram Topic 4 (Sales)
+      const alertMsg = `📦 <b>داواکاری نوێی وەرەقەی کاشێر (ژمارە 1)!</b>\n\n` +
+        `• <b>مۆبایل:</b> <code>${fromPhone}</code>\n` +
+        `• <b>پەیامی کڕیار:</b> "${text}"\n\n` +
+        `<i>تکایە تیمی فرۆشتن بەدواداچوونی بۆ بکەن 🚚</i>`;
+      const telegramService = require('./telegramService');
+      telegramService.sendMessage(alertMsg, {
+        chatId: config.GROUP_CHAT_ID,
+        threadId: config.TOPICS.SALES
+      }).catch(() => {});
+
       session.lastInteractionAt = now;
       return;
     }
+
+    // -------------------------------------------------------------
+    // ⚡ QUICK NUMBER 2: OFFICIAL PDF PRICE LIST (فایلی PDFی پرایس لیست)
+    // -------------------------------------------------------------
+    if (isQuick2 || lower === 'pdf' || lower.includes('پیدیئێف') || lower.includes('پرایس لیست')) {
+      const pdfPath = path.join(__dirname, '..', 'Vertex_Price_List.pdf');
+      let caption = `📄 *لیستی فەرمیی نرخەکانی کۆمپانیای VERTEX*\n\n`;
+      caption += `• نرخەکان بەپێی داتای ئەمڕۆی زۆهۆ بۆکس و نرخی بازاڕ دیاریکراون.\n`;
+      caption += `• سەرجەم کەرەستەکانی وەرەقەی حەراری، پرینتەری پسوولە، بارکۆد سکانەر، سندوقی پارە، و کۆمپیوتەری لەمسی تێدایە.\n\n`;
+      caption += `📞 *داواکاری و فرۆشتن:* ${PHONE_1}\n`;
+      caption += `🌐 *ماڵپەڕ:* ${WEBSITE_URL} | 📢 *تێلیگرام:* ${TELEGRAM_URL}`;
+
+      try {
+        if (fs.existsSync(pdfPath)) {
+          await this.sock.sendMessage(remoteJid, {
+            document: fs.readFileSync(pdfPath),
+            mimetype: 'application/pdf',
+            fileName: 'Vertex_Price_List.pdf',
+            caption: caption
+          });
+        } else {
+          await this.sock.sendMessage(remoteJid, { text: caption });
+        }
+      } catch (err) {
+        console.warn('[Baileys] PDF send error:', err.message);
+        await this.sock.sendMessage(remoteJid, { text: caption });
+      }
+
+      const alertMsg = `📄 <b>کڕیار داوای پرایس لیستی PDFی کرد (ژمارە 2)!</b>\n\n` +
+        `• <b>مۆبایل:</b> <code>${fromPhone}</code>`;
+      const telegramService = require('./telegramService');
+      telegramService.sendMessage(alertMsg, {
+        chatId: config.GROUP_CHAT_ID,
+        threadId: config.TOPICS.SALES
+      }).catch(() => {});
+
+      session.lastInteractionAt = now;
+      return;
+    }
+
+    // -------------------------------------------------------------
+    // ⚡ QUICK NUMBER 3: TALK TO SALES TEAM (پەیوەندی بە تیمی فرۆشتن)
+    // -------------------------------------------------------------
+    if (isQuick3 || lower.includes('پەیوەندی') || lower.includes('قسەکردن') || lower.includes('نوێنەر') || lower.includes('فرۆشتن')) {
+      let reply = `📞 *پەیوەندی ڕاستەوخۆ لەگەڵ تیمی فرۆشتن و خزمەتگوزاری کۆمپانیای VERTEX*\n\n`;
+      reply += `تیمی ئەندازیاران و فرۆشتنی ئێمە بەوپەڕی خۆشحاڵییەوە لە خزمەتتاندان:\n\n`;
+      reply += `☎️ *پەیوەندی خێرا و تەلەفۆن:* ${PHONE_1}\n`;
+      reply += `💬 *واتسئاپ و بۆتی فەرمی:* ${PHONE_BOT}\n`;
+      reply += `🏢 *ناونیشان:* عێراق - هەولێر - شەقامی ٦٠ مەتری\n`;
+      reply += `🌐 *ماڵپەڕی فەرمی:* ${WEBSITE_URL}\n`;
+      reply += `📢 *کەناڵی تێلیگرام:* ${TELEGRAM_URL}\n\n`;
+      reply += `دەتوانیت هەر ئێستا تەلەفۆن بۆ ژمارەی فرۆشتن بکەیت یان داواکارییەکەت لێرە لە نامەیەکدا بنووسیت تا نوێنەری کۆمپانیا دەستبەجێ پەیوەندیت پێوە بکات.`;
+
+      await this.sock.sendMessage(remoteJid, { text: reply });
+
+      const alertMsg = `🚨 <b>کڕیار داوای پەیوەندی خێرای کرد لەگەڵ فرۆشتن (ژمارە 3)!</b>\n\n` +
+        `• <b>مۆبایل:</b> <code>${fromPhone}</code>\n` +
+        `• <b>دەقی نامە:</b> "${text}"\n\n` +
+        `<i>تکایە دەستبەجێ تەلەفۆن بۆ ئەم مارکێتە بکەن بۆ ڕێککەوتن 📞</i>`;
+      const telegramService = require('./telegramService');
+      telegramService.sendMessage(alertMsg, {
+        chatId: config.GROUP_CHAT_ID,
+        threadId: config.TOPICS.SALES
+      }).catch(() => {});
+
+      session.lastInteractionAt = now;
+      return;
+    }
+
 
     // -------------------------------------------------------------
     // 2. CATEGORY 2: RECEIPT PRINTERS (Zoho Books Real Stock)
@@ -581,7 +669,7 @@ class WhatsAppBaileys {
     if (lower.includes('ئۆردەر') || lower.includes('داواکاری') || lower.includes('کڕین') || lower.includes('حجز') || lower.includes('طلب') || lower.includes('شراء') || lower.includes('order')) {
       let orderReply = `🛒 *داواکردنی کاڵا و تۆمارکردنی ئۆردەر*\n\n`;
       orderReply += `سوپاس بۆ پەیوەندیکردنتان بە کۆمپانیای VERTEX! تکایە ئەم زانیارییانە لێرە بنووسە:\n\n`;
-      orderReply += `1️⃣ *ناوی کاڵای داواکراو و ژمارەی دانە* (نموونە: ١ کارتۆن کاغەزی پاندا)\n`;
+      orderReply += `1️⃣ *ناوی کاڵای داواکراو و ژمارەی دانە* (نموونە: ١ کارتۆن وەرەقەی کاشێر 80×80)\n`;
       orderReply += `2️⃣ *ناوی بەڕێزتان و ژمارەی مۆبایل*\n`;
       orderReply += `3️⃣ *ناونیشانی تەواو* (شار، گەڕەک، نزیکترین شوێنی دیار)\n\n`;
       orderReply += `🚗 *گەیاندن:*\n${DELIVERY_NOTE}\n\n`;

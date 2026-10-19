@@ -189,10 +189,15 @@ class DailyOutreach {
     msg += `🌐 ماڵپەڕی فەرمی: ${WEBSITE_URL}\n`;
     msg += `📢 کەناڵی فەرمی تیلیگرام: ${TELEGRAM_URL}\n\n`;
 
-    msg += `(دەتوانیت هەر ئێستا لێرە لە واتسئاپ بنووسیت «سڵاو» بۆ بینینی لیستی نرخ و کەتەلۆگ بە شێوەیەکی ئۆتۆماتیکی).`;
+    msg += `⚡ *داواکردنی خێرا بە وەڵامدانەوەی ژمارە:*\n`;
+    msg += `• بۆ داواکردنی وەرەقەی کاشێر تەنها بنووسە: *١*\n`;
+    msg += `• بۆ بینینی پرایس لیستی نوێ بە فایلی PDF بنووسە: *٢*\n`;
+    msg += `• بۆ قسەکردن لەگەڵ تیمی فرۆشتن بنووسە: *٣*\n\n`;
+    msg += `(دەستبەجێ بە ناردنی ١ یان ٢ یان ٣ بۆتەکە بەشی داواکارییەکەت بۆ دەکاتەوە).`;
 
     return msg;
   }
+
 
   // Pre-screen and prepare tomorrow's 100 targets (Called at 10:00 PM nightly or via Telegram command)
   async prepareNightlyQueue(targetCount = 100) {
