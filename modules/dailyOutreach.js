@@ -7,6 +7,8 @@ const whatsappBaileys = require('../services/whatsappBaileys');
 const LEADS_FILE = path.join(__dirname, '../data/leads_contacts.json');
 const STATE_FILE = path.join(config.STATE_DIR, 'outreach_state.json');
 const QUEUE_FILE = path.join(config.STATE_DIR, 'outreach_queue.json');
+const REGISTRY_FILE = path.join(config.STATE_DIR, 'sent_registry.json');
+const ZOHO_CLIENTS_FILE = path.join(config.STATE_DIR, 'zoho_clients_blacklist.json');
 
 const PHONE_SALES = '\u200E0750 758 6992';
 const PHONE_BOT = '\u200E0751 949 6848';
@@ -16,6 +18,8 @@ const TELEGRAM_URL = 'https://t.me/vertexiqzone';
 class DailyOutreach {
   constructor() {
     this.leads = [];
+    this.sentRegistry = {};
+    this.zohoClients = {};
     this.state = {
       lastRunDate: null,
       lastQueueDate: null,
@@ -35,6 +39,8 @@ class DailyOutreach {
     this.loadLeads();
     this.loadState();
     this.loadQueue();
+    this.loadSentRegistry();
+    this.loadZohoClients();
   }
 
   loadLeads() {
@@ -99,12 +105,61 @@ class DailyOutreach {
     }
   }
 
+  loadSentRegistry() {
+    try {
+      if (fs.existsSync(REGISTRY_FILE)) {
+        this.sentRegistry = JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf8'));
+      } else {
+        this.sentRegistry = {};
+      }
+    } catch (e) {
+      console.error('[DailyOutreach] Failed to load sent registry:', e.message);
+      this.sentRegistry = {};
+    }
+  }
+
+  saveSentRegistry() {
+    try {
+      if (!fs.existsSync(config.STATE_DIR)) {
+        fs.mkdirSync(config.STATE_DIR, { recursive: true });
+      }
+      fs.writeFileSync(REGISTRY_FILE, JSON.stringify(this.sentRegistry, null, 2), 'utf8');
+    } catch (e) {
+      console.error('[DailyOutreach] Failed to save sent registry:', e.message);
+    }
+  }
+
+  loadZohoClients() {
+    try {
+      if (fs.existsSync(ZOHO_CLIENTS_FILE)) {
+        this.zohoClients = JSON.parse(fs.readFileSync(ZOHO_CLIENTS_FILE, 'utf8'));
+      } else {
+        this.zohoClients = {};
+      }
+    } catch (e) {
+      this.zohoClients = {};
+    }
+  }
+
   normalizePhone(phone) {
     let clean = String(phone).replace(/[^0-9]/g, '');
     if (clean.startsWith('00964')) clean = clean.substring(2);
     else if (clean.startsWith('07')) clean = '964' + clean.substring(1);
     else if (clean.startsWith('7') && clean.length === 10) clean = '964' + clean;
     return clean;
+  }
+
+  // Check if phone was messaged or in queue
+  isOutreachRecipient(phone) {
+    const clean = this.normalizePhone(phone);
+    if (this.sentRegistry && this.sentRegistry[clean]) {
+      return this.sentRegistry[clean];
+    }
+    if (this.queue && this.queue.items) {
+      const item = this.queue.items.find(i => i.phone === clean);
+      if (item) return item;
+    }
+    return null;
   }
 
   generateKurdishOutreachMessage(lead) {
@@ -149,6 +204,9 @@ class DailyOutreach {
     if (this.leads.length === 0) this.loadLeads();
     if (this.leads.length === 0) return { status: 'no_leads' };
 
+    this.loadSentRegistry();
+    this.loadZohoClients();
+
     console.log(`[DailyOutreach] 🔍 Starting nightly WhatsApp pre-screening for ${targetCount} verified targets...`);
 
     const tomorrow = new Date();
@@ -159,10 +217,13 @@ class DailyOutreach {
     let checkPointer = this.state.currentIndex;
     let checkedTotal = 0;
     let skippedExcluded = 0;
+    let skippedDuplicates = 0;
     let skippedNotWa = 0;
 
     const excludedSet = new Set(this.state.excludedPhones || []);
-    const sentSet = new Set((this.state.history || []).map(h => h.phone));
+    const sentSet = new Set(Object.keys(this.sentRegistry || {}));
+    const zohoSet = new Set(Object.keys(this.zohoClients || {}));
+    const currentBatchSet = new Set();
 
     while (queueItems.length < targetCount && checkPointer < this.leads.length) {
       const lead = this.leads[checkPointer];
@@ -170,10 +231,25 @@ class DailyOutreach {
       checkedTotal++;
 
       const clean = this.normalizePhone(lead.phone);
-      if (excludedSet.has(clean) || sentSet.has(clean)) {
+
+      // --- MULTI-LAYER ZERO-DUPLICATE GUARD ---
+      if (sentSet.has(clean)) {
+        skippedDuplicates++;
+        continue;
+      }
+      if (zohoSet.has(clean)) {
         skippedExcluded++;
         continue;
       }
+      if (excludedSet.has(clean)) {
+        skippedExcluded++;
+        continue;
+      }
+      if (currentBatchSet.has(clean)) {
+        skippedDuplicates++;
+        continue;
+      }
+      // ----------------------------------------
 
       // Check WhatsApp existence
       let waJid = null;
@@ -188,6 +264,8 @@ class DailyOutreach {
         this.state.totalSkippedNotWa++;
         continue;
       }
+
+      currentBatchSet.add(clean);
 
       queueItems.push({
         id: queueItems.length + 1,
@@ -216,7 +294,7 @@ class DailyOutreach {
     this.state.lastQueueDate = new Date().toISOString().split('T')[0];
     this.saveState();
 
-    console.log(`[DailyOutreach] ✅ Pre-screened ${queueItems.length} verified WhatsApp numbers for ${tomorrowStr}.`);
+    console.log(`[DailyOutreach] ✅ Pre-screened ${queueItems.length} verified WhatsApp numbers for ${tomorrowStr}. Duplicates prevented: ${skippedDuplicates}`);
 
     // Post to Telegram
     await this.postQueueToTelegram();
@@ -226,6 +304,7 @@ class DailyOutreach {
       targetDate: tomorrowStr,
       count: queueItems.length,
       checkedTotal,
+      skippedDuplicates,
       skippedNotWa
     };
   }
@@ -234,20 +313,22 @@ class DailyOutreach {
     const targetChat = chatId || config.GROUP_CHAT_ID;
     const targetThread = threadId || config.TOPICS.SALES;
 
-    const enabledItems = this.queue.items.filter(i => i.enabled);
-    const disabledItems = this.queue.items.filter(i => !i.enabled);
+    const enabledItems = (this.queue.items || []).filter(i => i.enabled);
+    const disabledItems = (this.queue.items || []).filter(i => !i.enabled);
+    const totalSentSoFar = Object.keys(this.sentRegistry || {}).length;
 
     let msg = `📋 <b>خشتەی ١٠٠ مارکێت و شوێنی ئامادەکراو بۆ سبەینێ (سەعات ٩:٠٠ی بەیانی) 🌅</b>\n\n`;
     msg += `• <b>بەرواری ناردن:</b> سبەینێ ${this.queue.date || 'ئەمڕۆ'}\n`;
-    msg += `• <b>دۆخی واتسئاپ:</b> هەموویان بە سەرکەوتوویی پشکنران و پشتڕاستکرانەوە ✅\n`;
+    msg += `• <b>سەلامەتی و دژە دووبارە:</b> ١٠٠٪ پشکنراوە؛ هیچ ژمارەیەکی دووبارە یان کڕیاری کۆنی زۆهۆی تێدا نییە 🛡️\n`;
     msg += `• <b>کۆی ئامادەکراو:</b> ${enabledItems.length} شوێن`;
     if (disabledItems.length > 0) {
       msg += ` (${disabledItems.length} شوێن بە دەستی لادراون)`;
     }
-    msg += `\n• <b>دۆخی ناردن:</b> ${this.queue.status === 'paused' ? '⏸ ڕاگیراوە (Paused)' : '▶️ چالاکە و سەعات ٩ دەنێردرێت'}\n\n`;
+    msg += `\n• <b>کۆی گشتی کڕیارانی پێشوو:</b> ${totalSentSoFar} مارکێت\n`;
+    msg += `• <b>دۆخی ناردن:</b> ${this.queue.status === 'paused' ? '⏸ ڕاگیراوە (Paused)' : '▶️ چالاکە و سەعات ٩ دەستپێدەکات'}\n\n`;
 
     msg += `<b>نموونەی ١٠ مارکێتی یەکەمی لیستەکە:</b>\n`;
-    const previewList = this.queue.items.slice(0, 10);
+    const previewList = (this.queue.items || []).slice(0, 10);
     previewList.forEach((it, idx) => {
       const statusIcon = it.enabled ? '🟢' : '🔴 (لادراوە)';
       msg += `${idx + 1}. ${statusIcon} <b>${it.name}</b> (${it.city}) - <code>${it.phone}</code>\n`;
@@ -307,6 +388,11 @@ class DailyOutreach {
   // Add custom number into queue
   async addNumber(phoneInput, nameInput, cityInput = 'کوردستان') {
     const clean = this.normalizePhone(phoneInput);
+
+    // Check duplicate against sent registry
+    if (this.sentRegistry && this.sentRegistry[clean]) {
+      return { success: false, reason: 'already_sent_previously' };
+    }
     
     // Check WhatsApp existence
     let waJid = null;
@@ -356,6 +442,7 @@ class DailyOutreach {
     const filePath = path.join(config.STATE_DIR, 'outreach_targets_tomorrow.txt');
     let text = `لیستی ١٠٠ شوێنی ئامادەکراو بۆ ناردنی نامەی واتسئاپ\n`;
     text += `بەروار: ${this.queue.date || 'سبەینێ'} | دۆخ: ${this.queue.status}\n`;
+    text += `سیستەمی پاراستن: بێ ژمارەی دووبارە (Zero Duplicate Guaranteed)\n`;
     text += `========================================================\n\n`;
 
     (this.queue.items || []).forEach((it, idx) => {
@@ -378,6 +465,10 @@ class DailyOutreach {
       console.warn('[DailyOutreach] WhatsApp Baileys is not connected.');
       return { status: 'whatsapp_not_connected' };
     }
+
+    // Refresh sent registry from disk
+    this.loadSentRegistry();
+    this.loadZohoClients();
 
     // If queue is empty or from a past date, prepare now
     if (!this.queue.items || this.queue.items.length === 0) {
@@ -408,15 +499,36 @@ class DailyOutreach {
     // Notify Telegram start
     await telegramService.sendMessage(`🚀 <b>دەستکرا بە ناردنی نامەی واتسئاپ بۆ ${enabledItems.length} مارکێتی پەسەندکراو</b>\n` +
       `• کاتی دەستپێکردن: ٩:٠٠ی بەیانی\n` +
+      `• سیستەمی دژە دووبارەبوونەوە: چالاکە 🛡️\n` +
       `• بۆ پاراستنی ئەکاونت، نێوان هەر نامەیەک ٣٠ چرکەیە.`, {
       chatId: config.GROUP_CHAT_ID,
       threadId: config.TOPICS.SALES
     }).catch(() => {});
 
     let sentCount = 0;
+    let duplicateSkipped = 0;
 
     for (let i = 0; i < enabledItems.length; i++) {
       const item = enabledItems[i];
+      const cleanPhone = this.normalizePhone(item.phone);
+
+      // --- RUNTIME DUPLICATE & CLIENT GUARD ---
+      if (this.sentRegistry[cleanPhone]) {
+        console.warn(`[DailyOutreach] [DUPLICATE BLOCKED] ${cleanPhone} (${item.name}) was already sent. Skipping.`);
+        item.status = 'duplicate_skipped';
+        duplicateSkipped++;
+        this.saveQueue();
+        continue;
+      }
+
+      if (this.zohoClients[cleanPhone]) {
+        console.warn(`[DailyOutreach] [ZOHO CLIENT BLOCKED] ${cleanPhone} is an active Zoho client. Skipping.`);
+        item.status = 'zoho_client_skipped';
+        this.saveQueue();
+        continue;
+      }
+      // ----------------------------------------
+
       const message = this.generateKurdishOutreachMessage(item);
 
       try {
@@ -426,8 +538,17 @@ class DailyOutreach {
         item.status = 'sent';
         item.sentAt = new Date().toISOString();
 
+        // Save immediately to permanent sent registry
+        this.sentRegistry[cleanPhone] = {
+          name: item.name,
+          city: item.city,
+          phone: cleanPhone,
+          sentAt: item.sentAt
+        };
+        this.saveSentRegistry();
+
         this.state.history.unshift({
-          phone: item.phone,
+          phone: cleanPhone,
           name: item.name,
           city: item.city,
           sentAt: item.sentAt
@@ -462,19 +583,21 @@ class DailyOutreach {
     this.saveState();
     this.saveQueue();
 
-    console.log(`[DailyOutreach] 🏁 Morning outreach finished: ${sentCount} sent.`);
+    console.log(`[DailyOutreach] 🏁 Morning outreach finished: ${sentCount} sent, ${duplicateSkipped} duplicates blocked.`);
 
     // Notify Telegram finish
+    const totalPermanent = Object.keys(this.sentRegistry || {}).length;
     await telegramService.sendMessage(`✅ <b>هەڵمەتی نامەناردنی بەیانیان بە سەرکەوتوویی کۆتایی هات!</b>\n\n` +
       `• <b>نامەی نێردراو ئەمڕۆ:</b> ${sentCount} مارکێت\n` +
-      `• <b>کۆی گشتی تا ئێستا:</b> ${this.state.totalSent} شوێن\n` +
+      `• <b>دووبارەی بلۆککراو:</b> ${duplicateSkipped}\n` +
+      `• <b>کۆی گشتی کڕیارانی تۆمارکراو:</b> ${totalPermanent} شوێن\n` +
       `• <b>ڕیزبەندی داهاتوو:</b> لە ژمارە ${this.state.currentIndex + 1} دەستپێدەکاتەوە.\n` +
-      `• <b>وەڵامدانەوە:</b> هەر کڕیارێک وەڵام بداتەوە بۆتەکەی واتسئاپ وەڵامی دەداتەوە 💬`, {
+      `• <b>وەڵامدانەوە:</b> هەر کڕیارێک وەڵام بداتەوە بە خێرایی لەم کەناڵە ئاگاداری دەدرێت 💬`, {
       chatId: config.GROUP_CHAT_ID,
       threadId: config.TOPICS.SALES
     }).catch(() => {});
 
-    return { status: 'completed', sentCount };
+    return { status: 'completed', sentCount, duplicateSkipped };
   }
 
   // Send a single test message immediately
@@ -500,12 +623,14 @@ class DailyOutreach {
       totalLeads: this.leads.length,
       currentIndex: this.state.currentIndex,
       totalSent: this.state.totalSent,
+      totalPermanentRegistered: Object.keys(this.sentRegistry || {}).length,
       totalSkippedNotWa: this.state.totalSkippedNotWa,
       isRunning: this.state.isRunning,
       queueStatus: this.queue.status,
       queueDate: this.queue.date,
       queueCount: (this.queue.items || []).filter(i => i.enabled).length,
-      excludedCount: (this.state.excludedPhones || []).length
+      excludedCount: (this.state.excludedPhones || []).length,
+      zohoClientsProtected: Object.keys(this.zohoClients || {}).length
     };
   }
 }

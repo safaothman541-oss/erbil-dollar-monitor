@@ -253,8 +253,33 @@ class WhatsAppBaileys {
     const lower = text.toLowerCase().trim();
 
     // -------------------------------------------------------------
+    // OUTREACH LEAD REPLY ALERT (ئاگاداریی فرۆشتن کاتێک کڕیارێک وەڵام دەداتەوە)
+    // -------------------------------------------------------------
+    try {
+      const dailyOutreach = require('../modules/dailyOutreach');
+      const outreachRecipient = dailyOutreach.isOutreachRecipient(fromPhone);
+      if (outreachRecipient && (!session.outreachAlertSentAt || (now - session.outreachAlertSentAt > 6 * 3600 * 1000))) {
+        session.outreachAlertSentAt = now;
+        this.saveSessions();
+        const alertMsg = `🔥 <b>وەڵامدانەوەی نوێ لە هەڵمەتی واتسئاپ!</b>\n\n` +
+          `• <b>ناوی مارکێت:</b> <b>${outreachRecipient.name || 'مارکێتی پەیوەندیدار'}</b>\n` +
+          `• <b>شار:</b> ${outreachRecipient.city || 'کوردستان'}\n` +
+          `• <b>مۆبایل:</b> <code>${fromPhone}</code>\n` +
+          `• <b>پەیامی کڕیار:</b> "${text}"\n\n` +
+          `<i>⚡ بۆتەکە بە شێوەی خودکار مێنیوی سەرەکی پێشکەش دەکات. تیمی فرۆشتن دەتوانن بەدواداچوونی ڕاستەوخۆ بکەن.</i>`;
+        
+        const telegramService = require('./telegramService');
+        telegramService.sendMessage(alertMsg, {
+          chatId: config.GROUP_CHAT_ID,
+          threadId: config.TOPICS.SALES
+        }).catch(() => {});
+      }
+    } catch(e) {}
+
+    // -------------------------------------------------------------
     // FIRST-TIME ONBOARDING & GUIDANCE (سەرەتا ڕێنمایی تەواو پێدەدات)
     // -------------------------------------------------------------
+
     const isFirstTime = !session.welcomeSentAt || (now - session.welcomeSentAt > 24 * 3600 * 1000);
 
     if (isFirstTime) {
