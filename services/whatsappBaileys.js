@@ -30,6 +30,27 @@ class WhatsAppBaileys {
     this.customerSessions = new Map();
     this.httpServer = null;
     this.profileConfigured = false;
+    this.loadSessions();
+  }
+
+  loadSessions() {
+    try {
+      const sessFile = path.join(__dirname, '..', 'state', 'customer_sessions.json');
+      if (fs.existsSync(sessFile)) {
+        const raw = JSON.parse(fs.readFileSync(sessFile, 'utf8'));
+        this.customerSessions = new Map(Object.entries(raw));
+      }
+    } catch (e) {
+      this.customerSessions = new Map();
+    }
+  }
+
+  saveSessions() {
+    try {
+      const sessFile = path.join(__dirname, '..', 'state', 'customer_sessions.json');
+      const obj = Object.fromEntries(this.customerSessions);
+      fs.writeFileSync(sessFile, JSON.stringify(obj, null, 2), 'utf8');
+    } catch (e) {}
   }
 
   getSession(phone) {
@@ -39,6 +60,7 @@ class WhatsAppBaileys {
         mutedUntil: 0,
         lastInteractionAt: 0
       });
+      this.saveSessions();
     }
     return this.customerSessions.get(phone);
   }
@@ -195,11 +217,60 @@ class WhatsAppBaileys {
     }
   }
 
+  async sendMasterMenu(remoteJid) {
+    let welcome = `🌟 *بەخێربێن بۆ کۆمپانیای VERTEX*\n`;
+    welcome += `دابینکردنی کاغەزی حەراری و سەرجەم کەرەستەکانی خاڵی فرۆش (POS) لە عێراق.\n\n`;
+    welcome += `🤖 *ڕێبەری هۆشمەندی خێرا - هەر ژمارەیەک بنووسیت کەتەلۆگ و وێنەکەی دەبینیت:*\n\n`;
+    welcome += `1️⃣ 📄 *کاغەزی حەراری و لەیبڵ* (Panda 80×80 & Rolls)\n`;
+    welcome += `2️⃣ 🖨 *پرینتەری پسوولەی کاشێر و مەتبەخ* (Novex, Epson)\n`;
+    welcome += `3️⃣ 🏷 *پرینتەری ستیکەر و بارکۆد* (Zebra, HPRT)\n`;
+    welcome += `4️⃣ 🔫 *بارکۆد سکانەری خێرا* (ODDeX P55, 2D QR)\n`;
+    welcome += `5️⃣ 💰 *کش دراوەری پارەی کاشێر* (CD-410 6.5KG)\n`;
+    welcome += `6️⃣ 💻 *سیستەمی تەواوی POS و تەرازووی دیجیتاڵ*\n`;
+    welcome += `7️⃣ 🎁 *پاکێج و ئۆفەری تایبەتی داشکاندن*\n`;
+    welcome += `8️⃣ 💵 *نوێترین نرخی کاتیی دۆلاری بازاڕ*\n`;
+    welcome += `9️⃣ 📍 *ناونیشان، دەوام و پەیوەندی بە فرۆشتن*\n\n`;
+    welcome += `💡 *فەرمانی خێرا:*\n`;
+    welcome += `• بنووسە *«pdf»* ➔ بۆ فایلی تەواوی نرخەکان\n`;
+    welcome += `• بنووسە *«ئۆردەر»* ➔ بۆ داواکردن و کڕین\n`;
+    welcome += `• یان ڕاستەوخۆ *ناوی هەر کاڵایەک* بنووسە تا وێنە و نرخەکەی ببینیت!\n\n`;
+    welcome += `🚗 *گەیاندن:* بۆ هەموو شارەکان بەردەستە (بە کرێی ئاسایی).\n`;
+    welcome += `📞 *پەیوەندی بەپەلە:* ${PHONE_1} | ${PHONE_2}`;
+
+    await this.sock.sendMessage(remoteJid, { text: welcome });
+  }
+
   async handleCustomerMessage(remoteJid, text) {
     const fromPhone = remoteJid.replace('@s.whatsapp.net', '').replace('@lid', '');
     const session = this.getSession(fromPhone);
     const now = Date.now();
     const lower = text.toLowerCase().trim();
+
+    // -------------------------------------------------------------
+    // FIRST-TIME ONBOARDING & GUIDANCE (سەرەتا ڕێنمایی تەواو پێدەدات)
+    // -------------------------------------------------------------
+    const isFirstTime = !session.welcomeSentAt || (now - session.welcomeSentAt > 24 * 3600 * 1000);
+
+    if (isFirstTime) {
+      session.welcomeSentAt = now;
+      session.lastInteractionAt = now;
+      this.saveSessions();
+      await this.sendMasterMenu(remoteJid);
+
+      // Check if the first message was purely a greeting or start command
+      const greetingKeywords = [
+        'سڵاو', 'سلام', 'slaw', 'hello', 'hi', 'مرحبا', 'سلاو', 'salam',
+        'salam alaikum', 'assalam', 'سەلام', 'سلام علیکم', 'السلام عليكم',
+        'slawe', 'سڵاو عەلەیکوم', 'چۆنی', 'باشی', 'menu', 'کەتەلۆگ', 'لیست',
+        'نرخ', 'کاتالۆگ', 'کاتەلۆگ', 'catalog', 'prices', 'list', 'دەستپێک', 'سەرەتا', 'help', '0', '.'
+      ];
+      const isPureGreeting = greetingKeywords.some(g => lower === g || lower.startsWith(g + ' '));
+      if (isPureGreeting) {
+        return; // Master guide was already sent as the complete response!
+      }
+      // If their first message ALSO asked for a specific item (e.g. "کاغەز", "پرینتەر", "دۆلار"),
+      // execution continues below to send that specific item right with it!
+    }
 
     // Load showcase items
     let showcaseItems = [];
@@ -493,39 +564,20 @@ class WhatsAppBaileys {
     }
 
     // -------------------------------------------------------------
-    // 10. GREETINGS & FULL MAIN MENU
+    // 10. EXPLICIT REQUEST FOR MAIN MENU / CATALOG
     // -------------------------------------------------------------
-    const greetingKeywords = [
+    const menuKeywords = [
       'سڵاو', 'سلام', 'slaw', 'hello', 'hi', 'مرحبا', 'سلاو', 'salam',
       'salam alaikum', 'assalam', 'سەلام', 'سلام علیکم', 'السلام عليكم',
       'slawe', 'سڵاو عەلەیکوم', 'چۆنی', 'باشی', 'menu', 'کەتەلۆگ', 'لیست',
-      'نرخ', 'کاتالۆگ', 'کاتەلۆگ', 'catalog', 'prices', 'list', 'دەستپێک', 'سەرەتا', 'help'
+      'نرخ', 'کاتالۆگ', 'کاتەلۆگ', 'catalog', 'prices', 'list', 'دەستپێک', 'سەرەتا', 'help', '0'
     ];
-    const isGreeting = greetingKeywords.some(g => lower === g || lower.startsWith(g + ' ') || lower.includes(g));
-    const isFirstTime = !session.welcomeSentAt || (now - session.welcomeSentAt > 12 * 3600 * 1000);
+    const wantsMenu = menuKeywords.some(g => lower === g || lower.startsWith(g + ' ') || lower.includes(g));
 
-    if (isGreeting || lower === '0' || isFirstTime) {
-      let welcome = `🌟 *بەخێربێن بۆ کۆمپانیای ڤێرتێکس (Vertex)*\n`;
-      welcome += `دابینکردنی کاغەزی حەراری و سەرجەم کەرەستەکانی خاڵی فرۆش (POS) لە عێراق.\n\n`;
-      welcome += `📋 *کەتەلۆگی خێرا - ژمارەی بەشەکە بنووسە:*\n`;
-      welcome += `1️⃣ 📄 کاغەزی حەراری و لەیبڵ (Panda & Rolls)\n`;
-      welcome += `2️⃣ 🖨 پرینتەری پسوولەی کاشێر و مەتبەخ (Novex, Zywell, Epson)\n`;
-      welcome += `3️⃣ 🏷 پرینتەری لەیبڵ و بارکۆد (Zebra, HPRT, Biison)\n`;
-      welcome += `4️⃣ 🔫 بارکۆد سکانەری 1D/2D و بێ وایەر\n`;
-      welcome += `5️⃣ 💰 کش دراوەری پارەی پۆڵایینی (CD-410)\n`;
-      welcome += `6️⃣ 💻 سیستەمی تەواوی POS و تەرازووی دیجیتاڵ\n`;
-      welcome += `7️⃣ 🎁 پاکێج و ئۆفەری تایبەتی POS\n`;
-      welcome += `8️⃣ 💵 نوێترین نرخی دۆلاری بازاڕ\n`;
-      welcome += `9️⃣ 📍 ناونیشان، کاتی دەوام و پەیوەندی\n\n`;
-      welcome += `💡 دەتوانیت بنووسیت *«pdf»* بۆ وەرگرتنی فایل، یان *«ئۆردەر»* بۆ داواکردنی ڕاستەوخۆ.\n\n`;
-      welcome += `🚗 *گەیاندن:*\n${DELIVERY_NOTE}\n\n`;
-      welcome += `📞 *پەیوەندی بە فرۆشتن:*\n`;
-      welcome += `• ${PHONE_1}\n`;
-      welcome += `• ${PHONE_2}`;
-
-      await this.sock.sendMessage(remoteJid, { text: welcome });
-      session.welcomeSentAt = now;
+    if (wantsMenu) {
+      await this.sendMasterMenu(remoteJid);
       session.lastInteractionAt = now;
+      this.saveSessions();
       return;
     }
 
