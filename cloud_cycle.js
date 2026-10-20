@@ -53,6 +53,33 @@ async function runCloudCycle() {
 
         await telegramService.sendMessage(msg, { threadId: config.TOPICS.DOLLAR });
 
+        // Also broadcast to public channel @vertexiqzone
+        try {
+          let channelMsg = `💵 <b>نوێترین نرخی کاتیی دۆلاری بازاڕ</b>\n\n`;
+          channelMsg += `• <b>نرخی بازاڕ:</b> <code>${market.rawText}</code>\n`;
+          channelMsg += `• <b>نرخی هەر یەک دۆلار:</b> <b>${(market.ratePer100 / 100).toLocaleString()} دینار</b>\n`;
+          channelMsg += `• <b>کاتی تۆمارکردن:</b> ${localTimeStr}\n\n`;
+          channelMsg += `🏢 <b>کۆمپانیای VERTEX بۆ کەرەستەی کاشێر و مارکێت</b>\n`;
+          channelMsg += `🚗 گەیاندن بەردەستە بۆ هەموو شارەکان\n`;
+          channelMsg += `📞 فرۆشتن: 0750 758 6992 | 0751 949 6848`;
+
+          const channelKeyboard = {
+            inline_keyboard: [
+              [
+                { text: '🌐 وێبسایتی فەرمی (vertex1.tech)', url: 'https://vertex1.tech' },
+                { text: '💬 پەیوەندی لە واتسئاپ', url: 'https://wa.me/9647519496848' }
+              ]
+            ]
+          };
+
+          await telegramService.sendMessage(channelMsg, {
+            chatId: config.CHANNEL_ID,
+            replyMarkup: channelKeyboard
+          });
+        } catch (cErr) {
+          console.warn('[CloudCycle] Channel dollar post note:', cErr.message);
+        }
+
         fs.writeFileSync(stateFile, JSON.stringify({
           channel: 'bazari_dolaraka',
           text: market.rawText,

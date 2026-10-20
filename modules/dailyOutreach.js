@@ -520,9 +520,15 @@ class DailyOutreach {
       return { status: 'paused' };
     }
 
-    const enabledItems = (this.queue.items || []).filter(i => i.enabled && i.status === 'pending');
+    let enabledItems = (this.queue.items || []).filter(i => i.enabled && i.status === 'pending');
     if (enabledItems.length === 0) {
-      console.log('[DailyOutreach] No pending enabled items in queue.');
+      console.log('[DailyOutreach] No pending enabled items in queue. Preparing fresh queue of 100 now...');
+      await this.prepareNightlyQueue(100);
+      enabledItems = (this.queue.items || []).filter(i => i.enabled && i.status === 'pending');
+    }
+
+    if (enabledItems.length === 0) {
+      console.log('[DailyOutreach] No leads available to send in queue.');
       return { status: 'no_pending_items' };
     }
 

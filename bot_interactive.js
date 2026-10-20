@@ -595,13 +595,36 @@ async function handleMessage(msg) {
   }
 
   // Topic 3 or /dollar command
-  if (text.startsWith('/dollar') || (threadId === config.TOPICS.DOLLAR && text.includes('دۆلار'))) {
+  const isDollarCmd = /^\/(dollar|dolar|rate)/i.test(text) || 
+                      (threadId === config.TOPICS.DOLLAR && (text.includes('دۆلار') || text.includes('نرخ') || text === 'دۆلار')) ||
+                      text.trim() === 'دۆلار' || text.trim() === 'نرخی دۆلار';
+  if (isDollarCmd) {
     const market = await dollarScraper.getLatestMarketRate();
     if (market) {
-      await zohoService.updateExchangeRate(market.ratePer100);
-      let dMsg = `💵 <b>نرخی ئێستای دۆلار:</b> <code>${market.rawText}</code> (1$ = ${(market.ratePer100 / 100).toLocaleString()} د.ع)\n`;
-      dMsg += `🔄 هاوکات لە سیستەمی Zoho Books جێگیرکرا.`;
-      await telegramService.sendMessage(dMsg, { chatId, threadId: config.TOPICS.DOLLAR });
+      let zohoSynced = false;
+      let zohoInfo = null;
+      try {
+        zohoInfo = await zohoService.updateExchangeRate(market.ratePer100);
+        zohoSynced = true;
+      } catch (e) {
+        console.warn('Zoho exchange rate update note:', e.message);
+      }
+
+      const dateObj = new Date(market.time);
+      const options = { timeZone: 'Asia/Baghdad', hour12: true, hour: '2-digit', minute: '2-digit', year: 'numeric', month: '2-digit', day: '2-digit' };
+      const localTimeStr = dateObj.toLocaleString('en-GB', options);
+
+      let dMsg = `💵 <b>نرخی ئێستای دۆلاری بازاڕ</b>\n\n`;
+      dMsg += `• <b>نرخ:</b> <code>${market.rawText}</code> (100$)\n`;
+      dMsg += `• <b>نرخی هەر دۆلارێک:</b> <b>${(market.ratePer100 / 100).toLocaleString()} دینار</b>\n`;
+      dMsg += `• <b>کاتی بازاڕ:</b> ${localTimeStr}\n`;
+      dMsg += `• <b>سەرچاوە:</b> کەناڵی بازاڕی دۆلارەکە (@bazari_dolaraka)\n`;
+      if (zohoSynced && zohoInfo) {
+        dMsg += `\n🔄 <b>سیستەمی Zoho Books نوێکرایەوە:</b> 1$ = ${zohoInfo.ratePerDollar.toLocaleString()} د.ع`;
+      }
+      dMsg += `\n\n🏢 <i>کۆمپانیای بازرگانی گشتی VERTEX</i>`;
+
+      await telegramService.sendMessage(dMsg, { chatId, threadId: threadId || config.TOPICS.DOLLAR });
     }
     return;
   }
@@ -628,16 +651,73 @@ async function backgroundCycle() {
 
       if (lastText !== market.rawText) {
         console.log('[Background] New dollar rate detected:', market.rawText);
-        const zohoInfo = await zohoService.updateExchangeRate(market.ratePer100);
-        let msg = `🔔 <b>ئاگاداری نرخی نوێی دۆلار لە بازاڕ</b>\n\n`;
-        msg += `💵 <b>نرخ:</b> <code>${market.rawText}</code>\n`;
-        msg += `🔄 <b>سیستەمی Zoho Books نوێکرایەوە:</b> 1$ = ${zohoInfo.ratePerDollar} د.ع`;
-        await telegramService.sendMessage(msg, { threadId: config.TOPICS.DOLLAR });
+        let zohoSynced = false;
+        let zohoInfo = null;
+        try {
+          zohoInfo = await zohoService.updateExchangeRate(market.ratePer100);
+          zohoSynced = true;
+          console.log(`[Background] Zoho Books updated: 1$ = ${zohoInfo.ratePerDollar} IQD`);
+        } catch (zErr) {
+          console.error('[Background] Zoho rate sync error:', zErr.message);
+        }
+
+        const dateObj = new Date(market.time);
+        const options = { timeZone: 'Asia/Baghdad', hour12: true, hour: '2-digit', minute: '2-digit', year: 'numeric', month: '2-digit', day: '2-digit' };
+        const localTimeStr = dateObj.toLocaleString('en-GB', options);
+
+        let groupMsg = `🔔 <b>ئاگاداری نوێبوونەوەی نرخی دۆلار لە بازاڕ</b>\n\n`;
+        groupMsg += `💵 <b>نرخ لە بازاڕ:</b> <code>${market.rawText}</code>\n`;
+        groupMsg += `⏰ <b>کاتی بازاڕ:</b> ${localTimeStr}\n`;
+        groupMsg += `📢 <b>سەرچاوە:</b> کەناڵی بازاڕی دۆلارەکە (@bazari_dolaraka)\n`;
+
+        if (zohoSynced && zohoInfo) {
+          groupMsg += `\n🔄 <b>سیستەمی Zoho Books نوێکرایەوە:</b>\n`;
+          groupMsg += `   • نرخی فەرمی دانرا: <b>1$ = ${zohoInfo.ratePerDollar.toLocaleString()} دینار</b>\n`;
+        }
+
+        groupMsg += `\n🤖 <i>سیستەمی خۆکاری چاودێری نرخ - کۆمپانیای VERTEX</i>`;
+
+        // 1. Post to Topic 3 (💵 نرخی دۆلاری بازاڕ)
+        try {
+          await telegramService.sendMessage(groupMsg, { threadId: config.TOPICS.DOLLAR });
+          console.log('[Background] Telegram alert sent to Topic 3.');
+        } catch (tErr) {
+          console.error('[Background] Failed to send to Topic 3:', tErr.message);
+        }
+
+        // 2. Post to Public Channel (@vertexiqzone)
+        try {
+          let channelMsg = `💵 <b>نوێترین نرخی کاتیی دۆلاری بازاڕ</b>\n\n`;
+          channelMsg += `• <b>نرخی بازاڕ:</b> <code>${market.rawText}</code>\n`;
+          channelMsg += `• <b>نرخی هەر یەک دۆلار:</b> <b>${(market.ratePer100 / 100).toLocaleString()} دینار</b>\n`;
+          channelMsg += `• <b>کاتی تۆمارکردن:</b> ${localTimeStr}\n\n`;
+          channelMsg += `🏢 <b>کۆمپانیای VERTEX بۆ کەرەستەی کاشێر و مارکێت</b>\n`;
+          channelMsg += `🚗 گەیاندن بەردەستە بۆ هەموو شارەکان\n`;
+          channelMsg += `📞 فرۆشتن: 0750 758 6992 | 0751 949 6848`;
+
+          const channelKeyboard = {
+            inline_keyboard: [
+              [
+                { text: '🌐 وێبسایتی فەرمی (vertex1.tech)', url: 'https://vertex1.tech' },
+                { text: '💬 پەیوەندی لە واتسئاپ', url: 'https://wa.me/9647519496848' }
+              ]
+            ]
+          };
+
+          await telegramService.sendMessage(channelMsg, {
+            chatId: config.CHANNEL_ID,
+            replyMarkup: channelKeyboard
+          });
+          console.log('[Background] Telegram alert sent to Channel @vertexiqzone.');
+        } catch (cErr) {
+          console.warn('[Background] Channel post note:', cErr.message);
+        }
 
         require('fs').writeFileSync(stateFile, JSON.stringify({
           channel: 'bazari_dolaraka',
           text: market.rawText,
           rate: market.ratePer100,
+          zoho_synced: zohoSynced,
           time: market.time,
           updated_at: new Date().toISOString()
         }, null, 2), 'utf8');
