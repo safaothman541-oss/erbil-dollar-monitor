@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-19T18:52:01.996Z",
+  "updatedAt": "2026-10-20T10:49:00.553Z",
   "totalCustomers": 8,
   "customers": {
     "9647513926226": {
@@ -26,11 +26,11 @@
       "phone": "9647504602877",
       "name": "Ram",
       "firstOrderDate": "2026-09-20",
-      "lastOrderDate": "2026-09-20",
+      "lastOrderDate": "2026-10-20",
       "lastRemindedDate": null,
       "reminderCount": 0,
       "status": "active",
-      "invoiceNumber": null
+      "invoiceNumber": "INV-000023"
     },
     "9647728621414": {
       "phone": "9647728621414",
