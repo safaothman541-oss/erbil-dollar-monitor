@@ -961,6 +961,15 @@ class WhatsAppBaileys {
         }
       }
 
+      // Serve 24/7 Background Auto-Installer
+      if (pathname === '/setup-24-7.sh') {
+        const p = path.join(__dirname, '..', 'safa-droid', 'setup-24-7.sh');
+        if (fs.existsSync(p)) {
+          res.writeHead(200, { 'Content-Type': 'text/x-shellscript; charset=utf-8' });
+          return res.end(fs.readFileSync(p, 'utf8'));
+        }
+      }
+
       // API: Android Agent Poll for Pending Commands
       if (pathname === '/api/mobile/poll') {
         const token = parsedUrl.searchParams.get('token');
