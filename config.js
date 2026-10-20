@@ -34,5 +34,26 @@ module.exports = {
   },
 
   // State storage
-  STATE_DIR: path.join(__dirname, 'state')
+  STATE_DIR: path.join(__dirname, 'state'),
+
+  // Safa OS & Executive AI Config
+  GROQ_API_KEY: process.env.GROQ_API_KEY || '',
+  LOCATION: {
+    NAME: 'هەولێر (Erbil)',
+    LATITUDE: 36.1911,
+    LONGITUDE: 44.0092,
+    TIMEZONE: 'Asia/Baghdad'
+  },
+  STATE: {
+    DIR: path.join(__dirname, 'state'),
+    SECOND_BRAIN: path.join(__dirname, 'state', 'second_brain.json'),
+    EXPENSES: path.join(__dirname, 'state', 'expenses.json'),
+    TASKS: path.join(__dirname, 'state', 'tasks.json'),
+    SOCIAL_QUEUE: path.join(__dirname, 'state', 'social_queue.json')
+  },
+  VERTEX: {
+    ALWAYSDATA_STATUS_URL: 'https://safaothman.alwaysdata.net/api/status',
+    ALWAYSDATA_OUTREACH_URL: 'https://safaothman.alwaysdata.net/api/outreach/status',
+    WEB_PORTAL_URL: 'https://project-rainfall-943399015.development.catalystserverless.com/app/index.html'
+  }
 };

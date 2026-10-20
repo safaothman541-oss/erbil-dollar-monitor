@@ -13,6 +13,12 @@ const channelPublisher = require('./modules/channelPublisher');
 const whatsappBaileys = require('./services/whatsappBaileys');
 const whatsappService = require('./services/whatsappService');
 const dailyOutreach = require('./modules/dailyOutreach');
+const groqService = require('./services/groqService');
+const aiRouter = require('./services/aiRouter');
+const secondBrain = require('./modules/secondBrain');
+const dailyBriefing = require('./modules/dailyBriefing');
+const socialContentEngine = require('./modules/socialContentEngine');
+const agencyHub = require('./modules/agencyHub');
 
 // Global Crash Prevention Watchdogs
 process.on('uncaughtException', (err) => {
@@ -28,6 +34,7 @@ let lastPriceListDate = null;
 let lastOutreachDate = null;
 let lastNightlyQueueDate = null;
 let lastReorderDate = null;
+let lastBriefingDate = null;
 
 
 
@@ -279,6 +286,280 @@ async function handleCallback(cb) {
     }
     return;
   }
+
+  // Safa OS: Task Completion Callback
+  if (data.startsWith('task:done:')) {
+    const taskId = data.split(':')[2];
+    const completed = secondBrain.completeTask(taskId);
+    if (completed) {
+      await telegramService.sendMessage(`🎉 <b>ئەرکی «${completed.task}» بە سەرکەوتوویی تەواو کرا! ✅</b>`, { chatId });
+    }
+    return;
+  }
+}
+
+// =============================================================
+// --- Safa OS: Personal Autonomous Executive AI Assistant ---
+// =============================================================
+
+function getSafaOSKeyboard() {
+  return {
+    keyboard: [
+      [{ text: '🌅 ڕاپۆرتی بەیانیان' }, { text: '💰 خەرجی و دارایی' }],
+      [{ text: '📋 ئەرکەکان (Tasks)' }, { text: '💡 بیرۆکەکان (Brain)' }],
+      [{ text: '📱 دروستکردنی پۆست' }, { text: '🏢 دۆخی VERTEX' }]
+    ],
+    resize_keyboard: true,
+    persistent: true
+  };
+}
+
+async function handleSafaVoice(msg) {
+  const chatId = msg.chat.id;
+  try {
+    await telegramService.sendMessage('🎙 <i>خەریکی گوێگرتن لە دەنگەکەتە بە زیرەکی دەستکرد...</i>', { chatId });
+
+    const fileId = msg.voice.file_id;
+    const audioBuffer = await telegramService.downloadFile(fileId);
+
+    // Fast Kurdish Groq Whisper
+    const transcribed = await groqService.transcribeAudio(audioBuffer, 'voice.oga');
+    if (!transcribed) {
+      await telegramService.sendMessage('⚠️ دەنگەکە نەبیسترا یان کورت بوو. تکایە دووبارەی بکەرەوە.', { chatId });
+      return;
+    }
+
+    await telegramService.sendMessage(`🗣 <b>دەقی دەنگەکەت:</b>\n<i>«${transcribed}»</i>`, { chatId });
+    await handleSafaSmartText(transcribed, chatId);
+  } catch (err) {
+    console.error('[SafaVoice] Error:', err.message);
+    await telegramService.sendMessage(`❌ هەڵە لە پڕۆسەی دەنگ: ${err.message}`, { chatId });
+  }
+}
+
+async function handleSafaSmartText(text, chatId) {
+  await telegramService.sendMessage('⚡ <i>Safa OS خەریکی شیکردنەوە و جێبەجێکردنی فەرمانەکەیە...</i>', { chatId });
+
+  try {
+    const result = await aiRouter.classifyAndProcess(text);
+    const { type, kurdishSummary, data } = result;
+
+    if (type === 'EXPENSE') {
+      const saved = secondBrain.addExpense(data);
+      const summary = secondBrain.getExpensesSummary();
+      let reply = `✅ <b>خەرجی تۆمارکرا لە مێشکی دووەم 💰</b>\n\n`;
+      reply += `• <b>بڕ:</b> ${saved.amount.toLocaleString()} ${saved.currency}\n`;
+      reply += `• <b>بەش:</b> ${saved.category}\n`;
+      if (saved.note) reply += `• <b>تێبینی:</b> ${saved.note}\n`;
+      reply += `• <b>بەروار:</b> ${saved.dateFormatted}\n\n`;
+      reply += `📊 <b>کۆی خەرجی ئەم مانگە:</b> ${summary.totalIQD.toLocaleString()} د.ع`;
+      if (summary.totalUSD > 0) reply += ` + $${summary.totalUSD.toLocaleString()}`;
+      await telegramService.sendMessage(reply, { chatId });
+      return;
+    }
+
+    if (type === 'TASK') {
+      const saved = secondBrain.addTask(data);
+      let reply = `✅ <b>ئەرکی نوێ زیادکرا بۆ خشتەکەت 📋</b>\n\n`;
+      reply += `• <b>ئەرک:</b> ${saved.task}\n`;
+      if (saved.dueDate) reply += `• <b>کاتی ئەنجامدان:</b> ${saved.dueDate}\n`;
+      reply += `• <b>ئاستی گرنگی:</b> ${saved.priority}\n\n`;
+      reply += `<i>دەتوانیت لە ڕێگەی فەرمانی /tasks هەموو ئەرکەکانت ببینی.</i>`;
+      await telegramService.sendMessage(reply, { chatId });
+      return;
+    }
+
+    if (type === 'IDEA') {
+      const saved = secondBrain.addIdea(data);
+      let reply = `💡 <b>بیرۆکەی نوێ لە مێشکی دووەم پارێزرا 🧠</b>\n\n`;
+      reply += `• <b>سەردێڕ:</b> <b>${saved.title}</b>\n\n`;
+      reply += `• <b>شیکاری AI:</b>\n${saved.analysis}\n\n`;
+      if (saved.tags && saved.tags.length > 0) {
+        reply += `🏷 ${saved.tags.map(t => `#${t}`).join(' ')}`;
+      }
+      await telegramService.sendMessage(reply, { chatId });
+      return;
+    }
+
+    if (type === 'CONTENT') {
+      await telegramService.sendMessage('✍️ <i>خەریکی دروستکردنی پاکێجی فەرمیی سۆشیال میدیایە...</i>', { chatId });
+      const omni = await socialContentEngine.generateOmniContent(data.topic || text);
+
+      let reply = `📱 <b>پاکێجی فەرمیی سۆشیال میدیا - Safa OS</b>\n\n`;
+      reply += `<b>سەردێڕی بابەت:</b> ${omni.title}\n`;
+      reply += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+      reply += `🔷 <b>پۆستی LinkedIn:</b>\n${omni.linkedin ? omni.linkedin.text : ''}\n\n`;
+      reply += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+      reply += `🐦 <b>زنجیرە توویتی X (Twitter Thread):</b>\n`;
+      if (omni.twitter && Array.isArray(omni.twitter.thread)) {
+        omni.twitter.thread.forEach((tw, i) => {
+          reply += `${i + 1}/ ${tw}\n\n`;
+        });
+      }
+      reply += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+      reply += `🎬 <b>سکریپتی کورتە ڤیدیۆی Reels / TikTok:</b>\n`;
+      if (omni.shortVideoScript) {
+        reply += `• <b>سەرنجڕاکێشان (Hook):</b> "${omni.shortVideoScript.hook}"\n`;
+        reply += `• <b>دیمەن (Visual):</b> ${omni.shortVideoScript.visualCue}\n`;
+        reply += `• <b>قسەکردن:</b> ${omni.shortVideoScript.body}\n`;
+        reply += `• <b>کۆتایی (CTA):</b> ${omni.shortVideoScript.callToAction}\n\n`;
+      }
+      reply += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+      reply += `📢 <b>دەقی کەناڵی تێلیگرام:</b>\n${omni.telegramPost || ''}`;
+
+      await telegramService.sendMessage(reply, { chatId });
+      return;
+    }
+
+    // Default: QUERY
+    let reply = `🤖 <b>وەڵامی زیرەکی دەستکرد - Safa OS</b>\n\n`;
+    reply += data.answer || kurdishSummary;
+    await telegramService.sendMessage(reply, { chatId });
+
+  } catch (err) {
+    console.error('[ProcessSmartText] Error:', err.message);
+    await telegramService.sendMessage(`⚠️ هەڵە لە شیکاریی AI: ${err.message}`, { chatId });
+  }
+}
+
+async function handleSafaMessage(chatId, text) {
+  if (text === '/start' || text === '/menu') {
+    let welcome = `👑 <b>بەخێربێیت کاکە سەفا بۆ Safa OS (سیستەمی هۆشمەندی ژیانت)</b>\n\n`;
+    welcome += `ئەم چاتە مێشکی دووەمتە و ۲٤ کاتژمێر لە خزمەتتاندایە:\n`;
+    welcome += `• 🎙 <b>دەنگ بنێرە:</b> خەرجییەکانت، بیرۆکەکانت، یان ئەرکەکانت بڵێ و سیستەم خۆی دەیکاتە کردار.\n`;
+    welcome += `• 🌅 <b>ڕاپۆرتی بەیانیان:</b> کەشوهەوای هەولێر، دارایی، ئەرکەکان و سێرڤەر.\n`;
+    welcome += `• 📱 <b>سۆشیال میدیا:</b> بە یەک تێکست پۆستی LinkedIn, Twitter, Reels دروست بکە.\n`;
+    welcome += `• 💼 <b>مۆنیتایزینگ:</b> پێشنیاری پڕۆژەی گەورە دروست بکە بە فەرمانی <code>/pitch [بوار] [ناوی کڕیار]</code>\n\n`;
+    welcome += `دوگمەکانی خوارەوە هەڵبژێرە یان ڕاستەوخۆ دەنگ و دەق بنێرە:`;
+
+    await telegramService.sendMessage(welcome, {
+      chatId,
+      replyMarkup: getSafaOSKeyboard()
+    });
+    return;
+  }
+
+  // Button: 🌅 ڕاپۆرتی بەیانیان
+  if (text === '🌅 ڕاپۆرتی بەیانیان' || text === '/briefing') {
+    await telegramService.sendMessage('⏳ <i>خەریکی ئامادەکردنی نوێترین زانیارییەکانی هەولێر و کۆمپانیایە...</i>', { chatId });
+    const brief = await dailyBriefing.generateExecutiveBriefing();
+    await telegramService.sendMessage(brief, { chatId });
+    return;
+  }
+
+  // Button: 💰 خەرجی و دارایی
+  if (text === '💰 خەرجی و دارایی' || text === '/expenses') {
+    const summary = secondBrain.getExpensesSummary();
+    let reply = `💰 <b>پووختەی دارایی و خەرجییەکانت (ئەم مانگە)</b>\n\n`;
+    reply += `• <b>کۆی خەرجی بە دینار:</b> <b>${summary.totalIQD.toLocaleString()} د.ع</b>\n`;
+    reply += `• <b>کۆی خەرجی بە دۆلار:</b> <b>$${summary.totalUSD.toLocaleString()}</b>\n`;
+    reply += `• <b>ژمارەی خەرجی تۆمارکراو:</b> ${summary.count}\n\n`;
+
+    if (Object.keys(summary.byCategory).length > 0) {
+      reply += `📊 <b>دابەشبوون بەپێی بەشەکان:</b>\n`;
+      for (const [cat, amt] of Object.entries(summary.byCategory)) {
+        reply += `• ${cat}: ${amt.toLocaleString()} د.ع\n`;
+      }
+      reply += `\n`;
+    }
+
+    if (summary.recent.length > 0) {
+      reply += `🕒 <b>دوایین خەرجییەکان:</b>\n`;
+      summary.recent.forEach(r => {
+        reply += `• ${r.dateFormatted}: ${r.amount.toLocaleString()} ${r.currency} (${r.category}) ${r.note ? `- ${r.note}` : ''}\n`;
+      });
+    }
+
+    reply += `\n💡 <i>دەتوانیت هەر کاتێک تەنها بە دەنگ بڵێیت «١٥ هەزارم دا بە نانخواردن» یەکسەر تۆماری دەکات.</i>`;
+    await telegramService.sendMessage(reply, { chatId });
+    return;
+  }
+
+  // Button: 📋 ئەرکەکان (Tasks)
+  if (text === '📋 ئەرکەکان (Tasks)' || text === '/tasks') {
+    const pending = secondBrain.getPendingTasks();
+    if (pending.length === 0) {
+      await telegramService.sendMessage('🎉 <b>دەستخۆش کاک سەفا! هیچ ئەرکێکی هەڵپەسێردراو لە خشتەکەتدا نییە.</b>', { chatId });
+      return;
+    }
+
+    let reply = `📋 <b>ئەرکە هەنووکەییەکانت (${pending.length} ئەرک):</b>\n\n`;
+    const inlineKeyboard = [];
+
+    pending.forEach(t => {
+      reply += `• <b>[#${t.id}] ${t.task}</b>\n`;
+      if (t.dueDate) reply += `  ⏰ کات: ${t.dueDate}\n`;
+      reply += `  ⚡ گرنگی: ${t.priority}\n\n`;
+
+      inlineKeyboard.push([
+        { text: `✅ تەواوکردنی #${t.id}: ${t.task.slice(0, 20)}`, callback_data: `task:done:${t.id}` }
+      ]);
+    });
+
+    await telegramService.sendMessage(reply, {
+      chatId,
+      replyMarkup: { inline_keyboard: inlineKeyboard }
+    });
+    return;
+  }
+
+  // Button: 💡 بیرۆکەکان (Brain)
+  if (text === '💡 بیرۆکەکان (Brain)' || text === '/brain') {
+    const ideas = secondBrain.getRecentIdeas(5);
+    if (ideas.length === 0) {
+      await telegramService.sendMessage('💡 <b>هێشتا هیچ بیرۆکەیەک لە مێشکی دووەم تۆمار نەکراوە.</b>\nتەنها بە دەنگ یان دەق بڵێ «بیرۆکەیەکم هەیە بۆ...» تا یەکسەر تۆماری بکات.', { chatId });
+      return;
+    }
+
+    let reply = `🧠 <b>مێشکی دووەم - دوایین بیرۆکە تۆمارکراوەکان:</b>\n\n`;
+    ideas.forEach((item, idx) => {
+      reply += `${idx + 1}. <b>${item.title}</b>\n`;
+      reply += `   ${item.analysis}\n`;
+      if (item.tags && item.tags.length > 0) {
+        reply += `   🏷 ${item.tags.map(t => `#${t}`).join(' ')}\n`;
+      }
+      reply += `\n`;
+    });
+    await telegramService.sendMessage(reply, { chatId });
+    return;
+  }
+
+  // Button: 📱 دروستکردنی پۆست
+  if (text === '📱 دروستکردنی پۆست') {
+    await telegramService.sendMessage('✍️ تکایە بە دەنگ یان دەق ئەو بیرۆکەیە بنێرە کە دەتەوێت بیکەیتە پۆستی سۆشیال میدیا.\n(نموونە: <i>«بۆچی سیستەمی ئۆتۆماتیک بۆ بازاڕی عێراق پێویستە»</i>)', { chatId });
+    return;
+  }
+
+  // Button: 🏢 دۆخی VERTEX
+  if (text === '🏢 دۆخی VERTEX' || text === '/vertex') {
+    const v = await dailyBriefing.getVertexStatus();
+    let reply = `🏢 <b>دۆخی ڕاستەوخۆی ژێرخانی کۆمپانیای VERTEX:</b>\n\n`;
+    reply += `• سێرڤەری کلاود (AlwaysData): ${v.server === 'online' ? '🟢 کارایە (Online)' : '🔴 ناچالاکە'}\n`;
+    reply += `• واتسئاپ بزنس: ${v.wa ? `🟢 بەستراوە بە ژمارەی ${v.user}` : '⚠️ دابڕاوە'}\n`;
+    reply += `• ئەپی داواکاری کلاود: <a href="${config.VERTEX.WEB_PORTAL_URL}">بینین لە براوسەر</a>\n\n`;
+    reply += `💡 <i>سیستەمەکە سبەینێ سەعات ۱۰:۳۰ خۆکارانە ۱۰۰ مارکێت بەسەردەکاتەوە.</i>`;
+    await telegramService.sendMessage(reply, { chatId });
+    return;
+  }
+
+  // Monetization Command: /pitch [sector] [name]
+  if (text.startsWith('/pitch')) {
+    const parts = text.split(/\s+/);
+    const sector = parts[1] || 'کۆمپانیا و مارکێت';
+    const name = parts.slice(2).join(' ') || 'کڕیاری بەڕێز';
+
+    await telegramService.sendMessage(`💼 <i>خەریکی داڕشتنی گەورەترین پێشنیاری فرۆشتنی ئۆتۆمەیشنە بۆ «${name}»...</i>`, { chatId });
+    const proposal = await agencyHub.generateClientProposal(sector, name);
+    await telegramService.sendMessage(proposal, { chatId });
+    return;
+  }
+
+  // General Smart Text: Route to AI
+  await handleSafaSmartText(text, chatId);
 }
 
 
@@ -288,9 +569,15 @@ async function handleMessage(msg) {
   const text = (msg.text || '').trim();
   const isPrivate = msg.chat.type === 'private';
 
-  // --- Private Chat with Customer ---
+  // --- Private Chat ---
   if (isPrivate) {
-    // Check if customer is entering info during an active order
+    // 1. Safa OS: If message is from Safa (Owner / Admin)
+    if (String(chatId) === String(config.ADMIN_USER_ID)) {
+      await handleSafaMessage(chatId, text);
+      return;
+    }
+
+    // 2. Otherwise: Private Chat with customer
     const handledByOrder = await customerStorefront.handleTextReply(chatId, text);
     if (handledByOrder) return;
 
@@ -793,7 +1080,14 @@ async function backgroundCycle() {
       });
     }
 
-
+    // 8. Safa OS: 8:00 AM Morning Executive Briefing
+    if (baghdadHour === 8 && baghdadMinute < 10 && lastBriefingDate !== todayDateStr) {
+      console.log('[Background] Sending 8:00 AM Morning Executive Briefing to Safa...');
+      lastBriefingDate = todayDateStr;
+      dailyBriefing.generateExecutiveBriefing().then(brief => {
+        telegramService.sendMessage(brief, { chatId: config.ADMIN_USER_ID });
+      }).catch(err => console.error('Briefing error:', err.message));
+    }
 
   } catch (err) {
     console.error('[BackgroundCycle] Error:', err.message);
@@ -813,7 +1107,11 @@ async function runPollingLoop() {
           if (update.callback_query) {
             await handleCallback(update.callback_query).catch(e => console.error('Callback error:', e.message));
           } else if (update.message) {
-            await handleMessage(update.message).catch(e => console.error('Message error:', e.message));
+            if (update.message.voice && String(update.message.chat.id) === String(config.ADMIN_USER_ID)) {
+              await handleSafaVoice(update.message).catch(e => console.error('Voice error:', e.message));
+            } else {
+              await handleMessage(update.message).catch(e => console.error('Message error:', e.message));
+            }
           }
         }
       }

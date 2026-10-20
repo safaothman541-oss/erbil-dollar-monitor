@@ -207,6 +207,21 @@ class TelegramService {
     });
   }
 
+  async downloadFile(fileId) {
+    const fileInfo = await this.apiCall('getFile', { file_id: fileId });
+    if (!fileInfo || !fileInfo.file_path) throw new Error('File path not found.');
+
+    const downloadUrl = `https://api.telegram.org/file/bot${this.token}/${fileInfo.file_path}`;
+
+    return new Promise((resolve, reject) => {
+      https.get(downloadUrl, (res) => {
+        const chunks = [];
+        res.on('data', c => chunks.push(c));
+        res.on('end', () => resolve(Buffer.concat(chunks)));
+      }).on('error', reject);
+    });
+  }
+
   getUpdates(offset = 0, timeout = 30) {
     return this.apiCall('getUpdates', {
       offset: offset,
