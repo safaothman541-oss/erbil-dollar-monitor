@@ -19,6 +19,8 @@ const secondBrain = require('./modules/secondBrain');
 const dailyBriefing = require('./modules/dailyBriefing');
 const socialContentEngine = require('./modules/socialContentEngine');
 const agencyHub = require('./modules/agencyHub');
+const conversationManager = require('./services/conversationManager');
+const emailCalendarHub = require('./modules/emailCalendarHub');
 
 // Global Crash Prevention Watchdogs
 process.on('uncaughtException', (err) => {
@@ -306,7 +308,8 @@ function getSafaOSKeyboard() {
   return {
     keyboard: [
       [{ text: '🌅 ڕاپۆرتی بەیانیان' }, { text: '💰 خەرجی و دارایی' }],
-      [{ text: '📋 ئەرکەکان (Tasks)' }, { text: '💡 بیرۆکەکان (Brain)' }],
+      [{ text: '📋 ئەرکەکان (Tasks)' }, { text: '📅 کالێندەر و مەوعید' }],
+      [{ text: '💡 بیرۆکەکان (Brain)' }, { text: '✉️ ئیمەیڵەکانی مۆبایل' }],
       [{ text: '📱 دروستکردنی پۆست' }, { text: '🏢 دۆخی VERTEX' }]
     ],
     resize_keyboard: true,
@@ -338,91 +341,83 @@ async function handleSafaVoice(msg) {
 }
 
 async function handleSafaSmartText(text, chatId) {
-  await telegramService.sendMessage('⚡ <i>Safa OS خەریکی شیکردنەوە و جێبەجێکردنی فەرمانەکەیە...</i>', { chatId });
+  await telegramService.sendMessage('🧠 <i>سەرۆکی دیوان (Safa OS) خەریکی تاوتوێکردن و ئامادەکردنی وەڵامە...</i>', { chatId });
 
   try {
-    const result = await aiRouter.classifyAndProcess(text);
-    const { type, kurdishSummary, data } = result;
+    const { reply, actions } = await conversationManager.chat(text);
 
-    if (type === 'EXPENSE') {
-      const saved = secondBrain.addExpense(data);
-      const summary = secondBrain.getExpensesSummary();
-      let reply = `✅ <b>خەرجی تۆمارکرا لە مێشکی دووەم 💰</b>\n\n`;
-      reply += `• <b>بڕ:</b> ${saved.amount.toLocaleString()} ${saved.currency}\n`;
-      reply += `• <b>بەش:</b> ${saved.category}\n`;
-      if (saved.note) reply += `• <b>تێبینی:</b> ${saved.note}\n`;
-      reply += `• <b>بەروار:</b> ${saved.dateFormatted}\n\n`;
-      reply += `📊 <b>کۆی خەرجی ئەم مانگە:</b> ${summary.totalIQD.toLocaleString()} د.ع`;
-      if (summary.totalUSD > 0) reply += ` + $${summary.totalUSD.toLocaleString()}`;
+    // 1. Send the conversational response first
+    if (reply) {
       await telegramService.sendMessage(reply, { chatId });
-      return;
     }
 
-    if (type === 'TASK') {
-      const saved = secondBrain.addTask(data);
-      let reply = `✅ <b>ئەرکی نوێ زیادکرا بۆ خشتەکەت 📋</b>\n\n`;
-      reply += `• <b>ئەرک:</b> ${saved.task}\n`;
-      if (saved.dueDate) reply += `• <b>کاتی ئەنجامدان:</b> ${saved.dueDate}\n`;
-      reply += `• <b>ئاستی گرنگی:</b> ${saved.priority}\n\n`;
-      reply += `<i>دەتوانیت لە ڕێگەی فەرمانی /tasks هەموو ئەرکەکانت ببینی.</i>`;
-      await telegramService.sendMessage(reply, { chatId });
-      return;
-    }
+    // 2. Process any agreed-upon actions
+    if (actions && actions.length > 0) {
+      for (const act of actions) {
+        if (act.type === 'EXPENSE') {
+          const item = act.item;
+          const summary = secondBrain.getExpensesSummary();
+          let msg = `💰 <b>خەرجی تۆمارکرا لە مێشکی دووەم:</b>\n`;
+          msg += `• <b>بڕ:</b> ${item.amount.toLocaleString()} ${item.currency} (${item.category})\n`;
+          if (item.note) msg += `• <b>تێبینی:</b> ${item.note}\n`;
+          msg += `📊 کۆی ئەم مانگە: ${summary.totalIQD.toLocaleString()} د.ع`;
+          await telegramService.sendMessage(msg, { chatId });
+        } else if (act.type === 'TASK') {
+          const item = act.item;
+          let msg = `📋 <b>ئەرک زیادکرا بۆ خشتەکەت:</b>\n`;
+          msg += `• #${item.id}: <b>${item.task}</b>\n`;
+          if (item.dueDate) msg += `• کات: ${item.dueDate}\n`;
+          msg += `• ئاستی گرنگی: ${item.priority}`;
+          await telegramService.sendMessage(msg, { chatId });
+        } else if (act.type === 'IDEA') {
+          const item = act.item;
+          let msg = `💡 <b>بیرۆکە پارێزرا لە مێشکی دووەم:</b>\n`;
+          msg += `• <b>${item.title}</b>\n`;
+          if (item.tags && item.tags.length > 0) msg += `🏷 ${item.tags.map(t => `#${t}`).join(' ')}`;
+          await telegramService.sendMessage(msg, { chatId });
+        } else if (act.type === 'CALENDAR') {
+          const cal = act.item;
+          let cap = `📅 <b>مەوعیدی نوێ بۆ کالێندەر ئامادەکرا!</b>\n\n`;
+          cap += `• <b>ناونیشان:</b> ${cal.event.title}\n`;
+          cap += `• <b>کات:</b> ${new Date(cal.event.start).toLocaleString('en-GB')}\n\n`;
+          cap += `📲 <b>بۆ زیادکردن بۆ مۆبایلەکەت:</b>\n`;
+          cap += `فایلی هاوپێچکراوی خوارەوە دابەزێنە یان دوگمەی خوارەوە لێبدە بۆ گووگڵ کالێندەر!`;
 
-    if (type === 'IDEA') {
-      const saved = secondBrain.addIdea(data);
-      let reply = `💡 <b>بیرۆکەی نوێ لە مێشکی دووەم پارێزرا 🧠</b>\n\n`;
-      reply += `• <b>سەردێڕ:</b> <b>${saved.title}</b>\n\n`;
-      reply += `• <b>شیکاری AI:</b>\n${saved.analysis}\n\n`;
-      if (saved.tags && saved.tags.length > 0) {
-        reply += `🏷 ${saved.tags.map(t => `#${t}`).join(' ')}`;
+          const gcalKeyboard = {
+            inline_keyboard: [
+              [{ text: '📅 زیادکردن بۆ Google Calendar بە ۱ کلیک', url: cal.googleCalendarUrl }]
+            ]
+          };
+
+          if (fs.existsSync(cal.filePath)) {
+            await telegramService.sendDocument(cal.filePath, {
+              chatId,
+              caption: cap,
+              replyMarkup: gcalKeyboard
+            });
+          } else {
+            await telegramService.sendMessage(cap, { chatId, replyMarkup: gcalKeyboard });
+          }
+        } else if (act.type === 'EMAIL') {
+          const em = act.item;
+          let msg = `✉️ <b>ڕەشنووسی ئیمەیڵ ئامادەیە:</b>\n\n`;
+          msg += `• <b>بۆ:</b> ${em.to || 'دیاری نەکراوە'}\n`;
+          msg += `• <b>سەردێڕ:</b> ${em.subject}\n`;
+          msg += `• <b>دەق:</b>\n<i>${em.body}</i>\n\n`;
+          msg += `دەتوانیت بە یەک کلیک لە ئەپی Gmail بیکەیتەوە و بینێریت:`;
+
+          const emailKeyboard = {
+            inline_keyboard: [
+              [{ text: '🚀 کردنەوە و ناردن لە Gmail', url: em.composeUrl }]
+            ]
+          };
+          await telegramService.sendMessage(msg, { chatId, replyMarkup: emailKeyboard });
+        }
       }
-      await telegramService.sendMessage(reply, { chatId });
-      return;
     }
-
-    if (type === 'CONTENT') {
-      await telegramService.sendMessage('✍️ <i>خەریکی دروستکردنی پاکێجی فەرمیی سۆشیال میدیایە...</i>', { chatId });
-      const omni = await socialContentEngine.generateOmniContent(data.topic || text);
-
-      let reply = `📱 <b>پاکێجی فەرمیی سۆشیال میدیا - Safa OS</b>\n\n`;
-      reply += `<b>سەردێڕی بابەت:</b> ${omni.title}\n`;
-      reply += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-      reply += `🔷 <b>پۆستی LinkedIn:</b>\n${omni.linkedin ? omni.linkedin.text : ''}\n\n`;
-      reply += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-      reply += `🐦 <b>زنجیرە توویتی X (Twitter Thread):</b>\n`;
-      if (omni.twitter && Array.isArray(omni.twitter.thread)) {
-        omni.twitter.thread.forEach((tw, i) => {
-          reply += `${i + 1}/ ${tw}\n\n`;
-        });
-      }
-      reply += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-      reply += `🎬 <b>سکریپتی کورتە ڤیدیۆی Reels / TikTok:</b>\n`;
-      if (omni.shortVideoScript) {
-        reply += `• <b>سەرنجڕاکێشان (Hook):</b> "${omni.shortVideoScript.hook}"\n`;
-        reply += `• <b>دیمەن (Visual):</b> ${omni.shortVideoScript.visualCue}\n`;
-        reply += `• <b>قسەکردن:</b> ${omni.shortVideoScript.body}\n`;
-        reply += `• <b>کۆتایی (CTA):</b> ${omni.shortVideoScript.callToAction}\n\n`;
-      }
-      reply += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-      reply += `📢 <b>دەقی کەناڵی تێلیگرام:</b>\n${omni.telegramPost || ''}`;
-
-      await telegramService.sendMessage(reply, { chatId });
-      return;
-    }
-
-    // Default: QUERY
-    let reply = `🤖 <b>وەڵامی زیرەکی دەستکرد - Safa OS</b>\n\n`;
-    reply += data.answer || kurdishSummary;
-    await telegramService.sendMessage(reply, { chatId });
-
   } catch (err) {
     console.error('[ProcessSmartText] Error:', err.message);
-    await telegramService.sendMessage(`⚠️ هەڵە لە شیکاریی AI: ${err.message}`, { chatId });
+    await telegramService.sendMessage(`⚠️ کێشەیەک ڕوویدا: ${err.message}`, { chatId });
   }
 }
 
@@ -543,6 +538,109 @@ async function handleSafaMessage(chatId, text) {
     reply += `• ئەپی داواکاری کلاود: <a href="${config.VERTEX.WEB_PORTAL_URL}">بینین لە براوسەر</a>\n\n`;
     reply += `💡 <i>سیستەمەکە سبەینێ سەعات ۱۰:۳۰ خۆکارانە ۱۰۰ مارکێت بەسەردەکاتەوە.</i>`;
     await telegramService.sendMessage(reply, { chatId });
+    return;
+  }
+
+  // Button: 📅 کالێندەر و مەوعید
+  if (text === '📅 کالێندەر و مەوعید' || text === '/calendar') {
+    const upcoming = emailCalendarHub.getUpcomingEvents();
+    let reply = `📅 <b>کالێندەر و مەوعیدەکانی مۆبایلت</b>\n\n`;
+    if (upcoming.length === 0) {
+      reply += `هیچ مەوعیدێکی ئاییندە تۆمار نەکراوە.\n\n`;
+    } else {
+      reply += `<b>مەوعیدە نزیکەکان (${upcoming.length}):</b>\n`;
+      upcoming.forEach((ev, idx) => {
+        const dStr = new Date(ev.start).toLocaleString('en-GB');
+        reply += `${idx + 1}. <b>${ev.title}</b>\n   ⏰ ${dStr}\n`;
+        if (ev.description) reply += `   📝 ${ev.description}\n`;
+      });
+      reply += `\n`;
+    }
+    reply += `💡 <b>چۆن مەوعید زیاد بکەیت؟</b>\n`;
+    reply += `• تەنها بە دەنگ یان دەق بڵێ: <i>«سبەینێ سەعات ٤ کۆبوونەوەم هەیە لەگەڵ بەڕێوەبەری کۆمپانیا»</i>، Safa OS فایلی کالێندەر (.ics) و لینکی ۱-کلیکی گووگڵت بۆ دەنێرێت تا ڕاستەوخۆ بخرێتە ناو مۆبایلەکەت!\n`;
+    reply += `• یان فەرمانی: <code>/add_event [سەردێڕ] [بەروار و کات]</code> بنێرە.`;
+    await telegramService.sendMessage(reply, { chatId });
+    return;
+  }
+
+  // Command: /add_event [title] [date]
+  if (text.startsWith('/add_event')) {
+    const clean = text.replace(/^\/add_event\s*/i, '').trim();
+    if (!clean) {
+      await telegramService.sendMessage('تکایە بەم شێوازە بنێرە:\n<code>/add_event کۆبوونەوە 2026-10-22 15:00</code>', { chatId });
+      return;
+    }
+    const cal = emailCalendarHub.generateIcsFile(clean, new Date().toISOString(), 60);
+    const gcalKeyboard = {
+      inline_keyboard: [
+        [{ text: '📅 زیادکردن بۆ Google Calendar بە ۱ کلیک', url: cal.googleCalendarUrl }]
+      ]
+    };
+    await telegramService.sendDocument(cal.filePath, {
+      chatId,
+      caption: `✅ مەوعیدی <b>«${clean}»</b> ئامادەکرا! فایلی سەرەوە دابەزێنە یان دوگمەی خوارەوە دابگرە بۆ زیادکردن بۆ مۆبایلەکەت.`,
+      replyMarkup: gcalKeyboard
+    });
+    return;
+  }
+
+  // Button: ✉️ ئیمەیڵەکانی مۆبایل
+  if (text === '✉️ ئیمەیڵەکانی مۆبایل' || text === '/email') {
+    const status = emailCalendarHub.getStatus();
+    if (!status.emailConfigured) {
+      let reply = `✉️ <b>بەستنەوەی ئیمەیڵی مۆبایل بە Safa OS</b>\n\n`;
+      reply += `ئەم تایبەتمەندییە ڕێگەت پێدەدات بە دەنگ یان دەق نامەکانی ناو ئیمەیڵەکەت ببینی، وەڵام بنووسیت و کورتەی ئیمەیڵە گرنگەکان وەربگریت.\n\n`;
+      reply += `🔑 <b>چۆن بە ۱ خولەک بیبەستیتەوە؟</b>\n`;
+      reply += `١. بڕۆ بۆ هەژماری گووگڵەکەت (Google Account) -> بەشی Security -> دواتر <b>App Passwords</b> دروست بکە (ناوی بنێ SafaOS).\n`;
+      reply += `٢. کۆدی ۱٦ پیتییەکە وەرگرە و لێرە بەم شێوازە بینێرە:\n`;
+      reply += `<code>/connect_email example@gmail.com xxxx xxxx xxxx xxxx</code>\n\n`;
+      reply += `🛡 <i>تێبینی: لەبەر سەلامەتی، سیستەمەکە ڕاستەوخۆ لە ڕێگەی پرۆتۆکۆڵی پارێزراوی TLS/IMAP لە کلاود دەبەسترێتەوە بەبێ پێویستی بە تێپەڕەوشەی سەرەکیت.</i>`;
+      await telegramService.sendMessage(reply, { chatId });
+      return;
+    }
+
+    await telegramService.sendMessage('📬 <i>خەریکی پشکنینی سندوقی ئیمەیڵەکەتە لە کلاود...</i>', { chatId });
+    const res = await emailCalendarHub.fetchRecentUnreadEmails(5);
+    if (!res.success) {
+      await telegramService.sendMessage(`⚠️ ناتوانرا سندوقی ئیمەیڵ بپشکنرێت: ${res.message}`, { chatId });
+      return;
+    }
+
+    if (res.count === 0) {
+      await telegramService.sendMessage(`🎉 <b>هیچ ئیمەیڵێکی نوێ و نەخوێندراوە لە سندوقی ${status.emailAddress} نییە!</b>`, { chatId });
+      return;
+    }
+
+    let reply = `📬 <b>ئیمەیڵە نوێ و نەخوێندراوەکانت (${res.count}):</b>\n\n`;
+    res.emails.forEach((em, idx) => {
+      reply += `${idx + 1}. <b>لە:</b> ${em.from}\n`;
+      reply += `   <b>سەردێڕ:</b> ${em.subject}\n`;
+      if (em.date) reply += `   ⏰ ${em.date}\n`;
+      reply += `\n`;
+    });
+    reply += `💡 <i>دەتوانیت بڵێیت: «وەڵامێکی فەرمی بنووسە بۆ یەکەمیان» تا Safa OS ڕەشنووسەکەت بۆ ئامادە بکات.</i>`;
+    await telegramService.sendMessage(reply, { chatId });
+    return;
+  }
+
+  // Command: /connect_email [email] [app_password]
+  if (text.startsWith('/connect_email')) {
+    const parts = text.split(/\s+/);
+    if (parts.length < 3) {
+      await telegramService.sendMessage('⚠️ تکایە بەم شێوازە بینێرە:\n<code>/connect_email yourname@gmail.com app_password</code>', { chatId });
+      return;
+    }
+    const email = parts[1];
+    const pass = parts.slice(2).join('');
+    emailCalendarHub.configureEmail(email, pass, 'gmail');
+    await telegramService.sendMessage(`✅ <b>ئیمەیڵی ${email} بە سەرکەوتوویی لە Safa OS تۆمارکرا!</b>\nئێستا دەتوانیت بە دوگمەی «✉️ ئیمەیڵەکانی مۆبایل» سندوقی نامەکانت بپشکنیت.`, { chatId });
+    return;
+  }
+
+  // Command: /clear or /reset
+  if (text === '/clear' || text === '/reset') {
+    conversationManager.clearHistory();
+    await telegramService.sendMessage('🧹 <b>مێژووی گفتوگۆ پاککرایەوە!</b> ئێستا وەک سەرەتایەکی نوێ لە خزمەتتاندام کاکە سەفا.', { chatId });
     return;
   }
 

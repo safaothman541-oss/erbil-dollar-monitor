@@ -943,6 +943,44 @@ class WhatsAppBaileys {
         }
       }
 
+      // API: Mobile Phone Sync Bridge (iOS Shortcuts / Android Tasker)
+      if (pathname === '/api/mobile/sync' && req.method === 'POST') {
+        let body = '';
+        req.on('data', c => body += c);
+        req.on('end', async () => {
+          try {
+            const data = body ? JSON.parse(body) : {};
+            const telegramService = require('./telegramService');
+            let alertMsg = `📱 <b>ئاگاداری هاوکاتکردنی مۆبایل (Mobile Sync):</b>\n\n`;
+            if (data.battery !== undefined) {
+              const bIcon = data.battery <= 20 ? '🪫' : '🔋';
+              alertMsg += `• <b>ڕێژەی پاتری:</b> ${bIcon} ${data.battery}%\n`;
+            }
+            if (data.charging !== undefined) {
+              alertMsg += `• <b>دۆخی شەحن:</b> ${data.charging ? '⚡ لەسەر شەحنە' : '🔌 لە شەحن نییە'}\n`;
+            }
+            if (data.location) {
+              alertMsg += `• <b>شوێن:</b> 📍 ${data.location}\n`;
+            }
+            if (data.event) {
+              alertMsg += `• <b>ڕووداو:</b> ${data.event}\n`;
+            }
+
+            // If battery is low, send alert to Safa
+            if (data.battery !== undefined && data.battery <= 20 && !data.charging) {
+              await telegramService.sendMessage(`⚠️ <b>کاکە سەفا، پاتری مۆبایلەکەت زۆر کەم بووە (${data.battery}%)!</b> تکایە بیخەرە سەر شەحن تا پەیوەندیت نەپچڕێت.`, { chatId: config.ADMIN_USER_ID });
+            }
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: 'Mobile state synced with Safa OS.' }));
+          } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: e.message }));
+          }
+        });
+        return;
+      }
+
       // API: Restart Bot Process
       if (pathname === '/api/restart') {
         res.writeHead(200, { 'Content-Type': 'application/json' });

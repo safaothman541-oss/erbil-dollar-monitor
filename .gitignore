@@ -5,4 +5,6 @@ state/cloudflared.log
 state/tunnel_url.json
 state/baileys_auth/
 state/current_qr.png
+state/*.json
+state/*.ics
 *.pdf
