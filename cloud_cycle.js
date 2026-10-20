@@ -174,6 +174,21 @@ async function runCloudCycle() {
     console.error('[CloudCycle] Channel publication error:', err.message);
   }
 
+  // 6. 24/7 Keep-Alive Sentinel Ping for AlwaysData Server & WhatsApp Hub
+  try {
+    const res = await fetch('https://safaothman.alwaysdata.net/api/status', {
+      signal: AbortSignal.timeout(10000)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      console.log(`[CloudCycle] ✅ AlwaysData Sentinel Ping OK: WhatsApp connected=${data.connected}, user=${data.user || 'None'}`);
+    } else {
+      console.warn(`[CloudCycle] ⚠️ AlwaysData returned HTTP ${res.status}`);
+    }
+  } catch (err) {
+    console.warn('[CloudCycle] AlwaysData keep-alive ping note:', err.message);
+  }
+
   console.log(`[${new Date().toISOString()}] === Vertex Cloud Cycle Completed Successfully ===`);
 }
 
