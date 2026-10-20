@@ -184,8 +184,8 @@ class DailyOutreach {
     msg += `ئەو نرخانەی لە پرایس لیستی ئێمەدا دیاریکراون نرخی تاکن (Retail). بۆ داواکاری بە بڕی زۆر و دابینکردنی بەردەوام بە نرخی کۆ (Wholesale)، داشکاندن و تەخفیفی زۆر تایبەتمان هەیە، دەتوانن بۆ نرخی کۆ ڕاستەوخۆ پەیوەندیمان پێوە بکەن.\n\n`;
 
     msg += `📞 بۆ داواکاری و پەیوەندی خێرا:\n`;
-    msg += `• فرۆشتن و پەیوەندی خێرا: ${PHONE_SALES}\n`;
-    msg += `• واتسئاپ و بۆتی فەرمی: ${PHONE_BOT}\n`;
+    msg += `• پەیوەندی و فرۆشتن: ${PHONE_SALES}\n`;
+    msg += `• واتسئاپ و پەیوەندی: ${PHONE_BOT}\n`;
     msg += `🌐 ماڵپەڕی فەرمی: ${WEBSITE_URL}\n`;
     msg += `📢 کەناڵی فەرمی تیلیگرام: ${TELEGRAM_URL}\n\n`;
 
@@ -193,7 +193,7 @@ class DailyOutreach {
     msg += `• بۆ داواکردنی وەرەقەی کاشێر تەنها بنووسە: *١*\n`;
     msg += `• بۆ بینینی پرایس لیستی نوێ بە فایلی PDF بنووسە: *٢*\n`;
     msg += `• بۆ قسەکردن لەگەڵ تیمی فرۆشتن بنووسە: *٣*\n\n`;
-    msg += `(دەستبەجێ بە ناردنی ١ یان ٢ یان ٣ بۆتەکە بەشی داواکارییەکەت بۆ دەکاتەوە).`;
+    msg += `(دەستبەجێ بە ناردنی ١ یان ٢ یان ٣ سیستمەکە بەشی داواکارییەکەت بۆ دەکاتەوە).`;
 
     return msg;
   }
@@ -201,6 +201,17 @@ class DailyOutreach {
 
   // Pre-screen and prepare tomorrow's 100 targets (Called at 10:00 PM nightly or via Telegram command)
   async prepareNightlyQueue(targetCount = 100) {
+    if (!whatsappBaileys.isConnected) {
+      console.log('[DailyOutreach] WhatsApp not currently marked connected during nightly queue prep. Waiting up to 30s...');
+      for (let attempt = 0; attempt < 10; attempt++) {
+        await new Promise(r => setTimeout(r, 3000));
+        if (whatsappBaileys.isConnected) {
+          console.log('[DailyOutreach] ✅ WhatsApp handshake verified during queue prep wait window!');
+          break;
+        }
+      }
+    }
+
     if (!whatsappBaileys.isConnected) {
       console.warn('[DailyOutreach] WhatsApp Baileys is not connected. Cannot pre-screen.');
       return { status: 'whatsapp_not_connected' };
@@ -466,15 +477,27 @@ class DailyOutreach {
   }
 
 
-  // Execute the morning outreach (Called at 9:00 AM)
+  // Execute the morning outreach (Called at 10:30 AM)
   async executeMorningOutreach(forced = false) {
     if (this.state.isRunning) {
       console.warn('[DailyOutreach] Outreach batch is already running.');
       return { status: 'already_running' };
     }
 
+    // Resilience: If WhatsApp is momentarily handshaking or reconnecting, wait up to 45s before declaring failure
     if (!whatsappBaileys.isConnected) {
-      console.warn('[DailyOutreach] WhatsApp Baileys is not connected.');
+      console.log('[DailyOutreach] WhatsApp not currently marked connected during morning dispatch. Waiting up to 45s...');
+      for (let attempt = 0; attempt < 15; attempt++) {
+        await new Promise(r => setTimeout(r, 3000));
+        if (whatsappBaileys.isConnected) {
+          console.log('[DailyOutreach] ✅ WhatsApp connection verified during wait window!');
+          break;
+        }
+      }
+    }
+
+    if (!whatsappBaileys.isConnected) {
+      console.warn('[DailyOutreach] WhatsApp Baileys is still not connected after 45s wait window.');
       return { status: 'whatsapp_not_connected' };
     }
 
@@ -642,7 +665,9 @@ class DailyOutreach {
       queueDate: this.queue.date,
       queueCount: (this.queue.items || []).filter(i => i.enabled).length,
       excludedCount: (this.state.excludedPhones || []).length,
-      zohoClientsProtected: Object.keys(this.zohoClients || {}).length
+      zohoClientsProtected: Object.keys(this.zohoClients || {}).length,
+      whatsappConnected: whatsappBaileys.isConnected,
+      whatsappUser: whatsappBaileys.connectedUser ? whatsappBaileys.connectedUser.id.split(':')[0] : null
     };
   }
 }

@@ -19,7 +19,7 @@ const PHONE_BOT = '\u200E0751 949 6848';
 const WEBSITE_URL = 'https://vertex1.tech';
 const TELEGRAM_URL = 'https://t.me/vertexiqzone';
 const DELIVERY_NOTE = 'گەیاندن بەردەستە بۆ هەموو شارەکان (گەیاندن بێ بەرامبەر نییە - بە کرێی گواستنەوەی ئاسایی)';
-const FOOTER = `🚗 ${DELIVERY_NOTE}\n📞 پەیوەندی و فرۆشتن: ${PHONE_1}\n💬 واتسئاپ و بۆت: ${PHONE_BOT}\n🌐 ماڵپەڕ: ${WEBSITE_URL}\n📢 تێلیگرام: ${TELEGRAM_URL}`;
+const FOOTER = `🚗 ${DELIVERY_NOTE}\n📞 پەیوەندی و فرۆشتن: ${PHONE_1}\n💬 واتسئاپ و پەیوەندی: ${PHONE_BOT}\n🌐 ماڵپەڕ: ${WEBSITE_URL}\n📢 تێلیگرام: ${TELEGRAM_URL}`;
 
 class WhatsAppBaileys {
   constructor() {
@@ -76,6 +76,22 @@ class WhatsAppBaileys {
 
     this.startHttpServer();
     await this.connectToWhatsApp();
+
+    // 24/7 Socket Health Watchdog (every 60 seconds)
+    setInterval(() => {
+      this.checkSocketHealth();
+    }, 60 * 1000);
+  }
+
+  async checkSocketHealth() {
+    if (!this.isConnected && !this.currentQr) {
+      console.log('[Baileys Watchdog] WhatsApp disconnected without active QR. Triggering auto-reconnect...');
+      try {
+        await this.connectToWhatsApp();
+      } catch (err) {
+        console.warn('[Baileys Watchdog] Auto-reconnect failed:', err.message);
+      }
+    }
   }
 
   async connectToWhatsApp() {
@@ -239,7 +255,7 @@ class WhatsAppBaileys {
     welcome += `• یان ڕاستەوخۆ *ناوی هەر کاڵایەک* بنووسە تا زانیاری و نرخەکەی ببینیت!\n\n`;
     welcome += `🚗 *گەیاندن:* بۆ هەموو شارەکان بەردەستە (گەیاندن بێ بەرامبەر نییە - بە کرێی گواستنەوەی ئاسایی).\n`;
     welcome += `📞 *پەیوەندی و فرۆشتن:* ${PHONE_1}\n`;
-    welcome += `💬 *واتسئاپ و بۆت:* ${PHONE_BOT}\n`;
+    welcome += `💬 *واتسئاپ و پەیوەندی:* ${PHONE_BOT}\n`;
     welcome += `🌐 *ماڵپەڕی فەرمی:* ${WEBSITE_URL}\n`;
     welcome += `📢 *چەناڵی تێلیگرام:* ${TELEGRAM_URL}`;
 
@@ -366,7 +382,7 @@ class WhatsAppBaileys {
       reply += `🚚 *بۆ داواکردن و گەیاندنی دەستبەجێ لە هەولێر:*\n`;
       reply += `تکایە *چەند کارتۆنت پێویستە لەگەڵ ناونیشانەکەت بنووسە* لێرە تا تیمی گەیاندن دەستبەجێ بۆت بهێنێت.\n\n`;
       reply += `📞 *پەیوەندی خێرا بە فرۆشتن:* ${PHONE_1}\n`;
-      reply += `💬 *واتسئاپ و بۆت:* ${PHONE_BOT}`;
+      reply += `💬 *واتسئاپ و پەیوەندی:* ${PHONE_BOT}`;
 
       const photoPath = path.join(__dirname, '..', 'assets', 'products', 'panda_80_80.png');
       await replyWithPhotoOrText(remoteJid, reply, photoPath);
@@ -441,7 +457,7 @@ class WhatsAppBaileys {
       let reply = `📞 *پەیوەندی ڕاستەوخۆ لەگەڵ تیمی فرۆشتن و خزمەتگوزاری کۆمپانیای VERTEX*\n\n`;
       reply += `تیمی ئەندازیاران و فرۆشتنی ئێمە بەوپەڕی خۆشحاڵییەوە لە خزمەتتاندان:\n\n`;
       reply += `☎️ *پەیوەندی خێرا و تەلەفۆن:* ${PHONE_1}\n`;
-      reply += `💬 *واتسئاپ و بۆتی فەرمی:* ${PHONE_BOT}\n`;
+      reply += `💬 *واتسئاپ و پەیوەندی:* ${PHONE_BOT}\n`;
       reply += `🏢 *ناونیشان:* عێراق - هەولێر - شەقامی ٦٠ مەتری\n`;
       reply += `🌐 *ماڵپەڕی فەرمی:* ${WEBSITE_URL}\n`;
       reply += `📢 *کەناڵی تێلیگرام:* ${TELEGRAM_URL}\n\n`;
@@ -627,7 +643,7 @@ class WhatsAppBaileys {
       reply += `🌐 ماڵپەڕ: ${WEBSITE_URL}\n`;
       reply += `📢 چەناڵی تێلیگرام: ${TELEGRAM_URL}\n`;
       reply += `📞 پەیوەندی و فرۆشتن: ${PHONE_1}\n`;
-      reply += `💬 واتسئاپ و بۆت: ${PHONE_BOT}`;
+      reply += `💬 واتسئاپ و پەیوەندی: ${PHONE_BOT}`;
       await this.sock.sendMessage(remoteJid, { text: reply });
       session.lastInteractionAt = now;
       return;
@@ -643,7 +659,7 @@ class WhatsAppBaileys {
       reply += `🌐 *وێبسایتی فەرمی:* https://vertex1.tech\n`;
       reply += `📢 *کەناڵی تێلیگرام:* https://t.me/vertexiqzone\n\n`;
       reply += `📞 *تەلەفۆن و پەیوەندی:* ${PHONE_1}\n`;
-      reply += `💬 *واتسئاپ و بۆت:* ${PHONE_BOT}\n\n`;
+      reply += `💬 *واتسئاپ و پەیوەندی:* ${PHONE_BOT}\n\n`;
       reply += `🚗 *گەیاندن بەردەستە بۆ هەموو شارەکانی کوردستان و عێراق* (گەیاندن بێ بەرامبەر نییە - بە کرێی گواستنەوەی ئاسایی).`;
 
       await this.sock.sendMessage(remoteJid, { text: reply });
@@ -666,7 +682,7 @@ class WhatsAppBaileys {
       reply += `6️⃣ سیستەمی POS و کۆمپیوتەر\n`;
       reply += `7️⃣ نرخی دۆلار\n`;
       reply += `8️⃣ پەیوەندی و ناونیشان\n\n`;
-      reply += `📞 پەیوەندی و فرۆشتن: ${PHONE_1}\n💬 واتسئاپ و بۆت: ${PHONE_BOT}`;
+      reply += `📞 پەیوەندی و فرۆشتن: ${PHONE_1}\n💬 واتسئاپ و پەیوەندی: ${PHONE_BOT}`;
       await this.sock.sendMessage(remoteJid, { text: reply });
       session.lastInteractionAt = now;
       return;
@@ -684,7 +700,7 @@ class WhatsAppBaileys {
       orderReply += `🚗 *گەیاندن:*\n${DELIVERY_NOTE}\n\n`;
       orderReply += `📞 تیمی فرۆشتنمان ڕاستەوخۆ پەیوەندیت پێوە دەکەن بۆ پشتڕاستکردنەوە:\n`;
       orderReply += `• پەیوەندی و فرۆشتن: ${PHONE_1}\n`;
-      orderReply += `• واتسئاپ و بۆت: ${PHONE_BOT}\n\n`;
+      orderReply += `• واتسئاپ و پەیوەندی: ${PHONE_BOT}\n\n`;
       orderReply += `🌐 ماڵپەڕ: ${WEBSITE_URL} | 📢 چەناڵی تێلیگرام: ${TELEGRAM_URL}`;
       await this.sock.sendMessage(remoteJid, { text: orderReply });
       session.lastInteractionAt = now;
@@ -701,7 +717,7 @@ class WhatsAppBaileys {
       deliveryReply += `• *ماوەی گەیشتن:* ناو هەولێر هەمان ڕۆژ یان ڕۆژی دواتر؛ بۆ شارەکانی تر لە ماوەی ٢٤ بۆ ٤٨ کاتژمێردا دەگات.\n\n`;
       deliveryReply += `📞 بەشی گەیاندن و فرۆشتن:\n`;
       deliveryReply += `• پەیوەندی و فرۆشتن: ${PHONE_1}\n`;
-      deliveryReply += `• واتسئاپ و بۆت: ${PHONE_BOT}\n\n`;
+      deliveryReply += `• واتسئاپ و پەیوەندی: ${PHONE_BOT}\n\n`;
       deliveryReply += `🌐 ماڵپەڕ: ${WEBSITE_URL} | 📢 چەناڵی تێلیگرام: ${TELEGRAM_URL}`;
       await this.sock.sendMessage(remoteJid, { text: deliveryReply });
       session.lastInteractionAt = now;
@@ -783,7 +799,7 @@ class WhatsAppBaileys {
     guideMsg += `• بنووسە *«دۆلار»* بۆ نرخی بازاڕ\n`;
     guideMsg += `• بنووسە *«کەتەلۆگ»* بۆ بینینی هەموو ٩ بەشەکە\n\n`;
     guideMsg += `📞 پەیوەندی و فرۆشتن: ${PHONE_1}\n`;
-    guideMsg += `💬 واتسئاپ و بۆت: ${PHONE_BOT}\n`;
+    guideMsg += `💬 واتسئاپ و پەیوەندی: ${PHONE_BOT}\n`;
     guideMsg += `🌐 ماڵپەڕ: ${WEBSITE_URL} | 📢 تێلیگرام: ${TELEGRAM_URL}`;
 
     await this.sock.sendMessage(remoteJid, { text: guideMsg });
@@ -1041,7 +1057,7 @@ class WhatsAppBaileys {
       </div>
       <h1 style="font-size: 26px; margin-bottom: 8px; color: #fff;">VERTEX WhatsApp Business Hub</h1>
       <p style="color: #a1a1aa; font-size: 14px; margin-bottom: 20px;">
-        بۆتەکە ئێستا لەسەر ژمارەی <b>${this.connectedUser ? this.connectedUser.id.split(':')[0] : ''}</b> ۲٤ کاتژمێر چالاکە و وەڵامی هەموو کڕیارێک دەداتەوە!
+        سیستەمەکە ئێستا لەسەر ژمارەی <b>${this.connectedUser ? this.connectedUser.id.split(':')[0] : ''}</b> ۲٤ کاتژمێر چالاکە و وەڵامی هەموو کڕیارێک دەداتەوە!
       </p>
 
       <div style="background: rgba(39, 39, 42, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 18px; margin-bottom: 20px; text-align: right; font-size: 14px; line-height: 1.8;">
@@ -1051,7 +1067,7 @@ class WhatsAppBaileys {
         <div>• <b>کەتەلۆگ:</b> ٤١ بەرهەمی فەرمی بە وێنەی 2K و نرخی ڕاستەوخۆ بە دۆلار و دینار</div>
         <div>• <b>دەوامی فەرمی:</b> ٩:٠٠ی بەیانی تا ٧:٠٠ی ئێوارە (شەممە تا پێنجشەممە)</div>
         <div>• <b>گەیاندن:</b> هەموو شارەکان بە کرێی ئاسایی (گەیاندن بێ بەرامبەر نییە)</div>
-        <div>• <b>فرۆشتن و پەیوەندی:</b> \u200E0750 758 6992 | <b>واتسئاپ و بۆت:</b> \u200E0751 949 6848</div>
+        <div>• <b>فرۆشتن و پەیوەندی:</b> \u200E0750 758 6992 | <b>واتسئاپ و فرۆشتن:</b> \u200E0751 949 6848</div>
         <div>• <b>ماڵپەڕ:</b> https://vertex1.tech | <b>چەناڵی تێلیگرام:</b> https://t.me/vertexiqzone</div>
       </div>
 
@@ -1092,7 +1108,7 @@ class WhatsAppBaileys {
       <div class="badge badge-waiting">
         ⏳ چاوەڕوانی سکانکردنی بارکۆد...
       </div>
-      <h1 style="font-size: 24px; margin-bottom: 8px;">بەستنەوەی واتسئاپ بە بۆت</h1>
+      <h1 style="font-size: 24px; margin-bottom: 8px;">بەستنەوەی واتسئاپ بە سێرڤەر</h1>
       <p style="color: #a1a1aa; font-size: 14px;">بە کامێرای مۆبایلت لە ناو واتسئاپ ئەم بارکۆدە سکان بکە:</p>
 
       ${this.currentQrDataUrl ? `

@@ -668,13 +668,24 @@ async function backgroundCycle() {
       lastPriceListDate = todayDateStr;
     }
 
-    // 5. Morning WhatsApp Daily Outreach check (10:30 AM Baghdad time - Golden Decision Window)
-    if (baghdadHour === 10 && baghdadMinute >= 30 && baghdadMinute < 45 && lastOutreachDate !== todayDateStr) {
-      console.log('[Background] Morning WhatsApp outreach time reached (10:30 AM Baghdad - Golden Peak Window).');
-      lastOutreachDate = todayDateStr;
-      dailyOutreach.executeMorningOutreach().catch(err => {
-        console.error('[Background] Daily outreach error:', err.message);
-      });
+    // 5. Morning WhatsApp Daily Outreach check (From 10:30 AM to 2:00 PM Baghdad time - Resilient Auto-Retry)
+    if (baghdadHour >= 10 && baghdadHour < 14 && lastOutreachDate !== todayDateStr) {
+      if (baghdadHour > 10 || baghdadMinute >= 30) {
+        const outreachStatus = dailyOutreach.getStatus();
+        if (!outreachStatus.isRunning && outreachStatus.queueStatus !== 'paused') {
+          console.log(`[Background] Checking/Triggering morning WhatsApp outreach (${baghdadHour}:${String(baghdadMinute).padStart(2, '0')} Baghdad)...`);
+          dailyOutreach.executeMorningOutreach().then(res => {
+            if (res && (res.status === 'completed' || res.status === 'no_pending_items')) {
+              console.log(`[Background] ✅ Daily WhatsApp outreach completed successfully for ${todayDateStr}!`);
+              lastOutreachDate = todayDateStr;
+            } else if (res && res.status === 'whatsapp_not_connected') {
+              console.warn(`[Background] ⚠️ WhatsApp not connected. Outreach will automatically retry in next 5-minute cycle.`);
+            }
+          }).catch(err => {
+            console.error('[Background] Daily outreach attempt error:', err.message);
+          });
+        }
+      }
     }
 
     // 6. 30-Day Customer Re-Order Replenishment Cycle (11:30 AM Baghdad time)
@@ -687,11 +698,17 @@ async function backgroundCycle() {
       });
     }
 
-    // 7. Nightly Pre-Screening & Queue Preparation check (10:00 PM Baghdad time = 22:00)
-    if (baghdadHour === 22 && baghdadMinute < 15 && lastNightlyQueueDate !== todayDateStr) {
-      console.log('[Background] Nightly 10:00 PM WhatsApp pre-screening time reached.');
-      lastNightlyQueueDate = todayDateStr;
-      dailyOutreach.prepareNightlyQueue(100).catch(err => {
+    // 7. Nightly Pre-Screening & Queue Preparation check (10:00 PM to 11:59 PM Baghdad time - Resilient Auto-Retry)
+    if (baghdadHour >= 22 && baghdadHour <= 23 && lastNightlyQueueDate !== todayDateStr) {
+      console.log(`[Background] Checking/Triggering nightly WhatsApp pre-screening (${baghdadHour}:${String(baghdadMinute).padStart(2, '0')} Baghdad)...`);
+      dailyOutreach.prepareNightlyQueue(100).then(res => {
+        if (res && res.status === 'prepared') {
+          console.log(`[Background] ✅ Nightly queue prepared successfully for ${res.targetDate}!`);
+          lastNightlyQueueDate = todayDateStr;
+        } else if (res && res.status === 'whatsapp_not_connected') {
+          console.warn(`[Background] ⚠️ WhatsApp not connected for nightly queue. Retrying in next 5-minute cycle.`);
+        }
+      }).catch(err => {
         console.error('[Background] Nightly queue error:', err.message);
       });
     }
