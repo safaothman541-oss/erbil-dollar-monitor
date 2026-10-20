@@ -4,6 +4,7 @@ const config = require('../config');
 const groqService = require('./groqService');
 const secondBrain = require('../modules/secondBrain');
 const emailCalendarHub = require('../modules/emailCalendarHub');
+const androidBridge = require('../modules/androidBridge');
 
 const HISTORY_FILE = path.join(config.STATE_DIR || path.join(__dirname, '..', 'state'), 'conversation_history.json');
 const MAX_HISTORY_TURNS = 16;
@@ -60,6 +61,7 @@ class ConversationManager {
    - بۆ بیرۆکەی نوێ: [ACTION:IDEA:{"title":"سەردێڕ","analysis":"شیکاری","tags":["تاگ1"]}]
    - بۆ کالێندەر و مەوعید: [ACTION:CALENDAR:{"title":"ناونیشانی مەوعید","time":"2026-10-22T14:00:00","duration":60,"description":"تێبینی"}]
    - بۆ ڕەشنووسی ئیمەیڵ: [ACTION:EMAIL:{"to":"ناونیشان","subject":"سەردێڕ","body":"دەقی نامە"}]
+   - بۆ فەرمانی ڕاستەوخۆ بەسەر مۆبایلی ئەندرۆید: [ACTION:DEVICE:{"action":"CALL|SMS|GPS|PHOTO|VIBRATE|TORCH|SPEAK|CLIPBOARD","target":"ژمارە یان دەق","message":"دەق"}]
 
 شێوازی گفتوگۆ: زۆر ڕێزدار، براوانە، ئەندازیارانە، هاندەر، بە زمانی کوردیی سۆرانییەکی زۆر جوان و بێ کەمین.`;
 
@@ -118,6 +120,9 @@ class ConversationManager {
         } else if (type === 'EMAIL') {
           const composeUrl = emailCalendarHub.getGmailComposeUrl(payload.to, payload.subject, payload.body);
           executed.push({ type: 'EMAIL', item: { ...payload, composeUrl } });
+        } else if (type === 'DEVICE') {
+          const cmd = androidBridge.queueCommand(payload.action, payload);
+          executed.push({ type: 'DEVICE', item: cmd });
         }
       } catch (e) {
         console.warn('[ConversationManager] Action parse error:', e.message);

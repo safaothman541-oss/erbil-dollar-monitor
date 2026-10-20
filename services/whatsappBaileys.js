@@ -943,6 +943,67 @@ class WhatsAppBaileys {
         }
       }
 
+      // Serve SafaDroid Android Agent script directly for 1-command install
+      if (pathname === '/safa-droid.js') {
+        const agentPath = path.join(__dirname, '..', 'safa-droid', 'agent.js');
+        if (fs.existsSync(agentPath)) {
+          res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
+          return res.end(fs.readFileSync(agentPath, 'utf8'));
+        }
+      }
+
+      // API: Android Agent Poll for Pending Commands
+      if (pathname === '/api/mobile/poll') {
+        const token = parsedUrl.searchParams.get('token');
+        if (token !== 'safa_droid_secret_2026') {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: 'Unauthorized device' }));
+        }
+
+        const battery = parsedUrl.searchParams.get('battery');
+        const charging = parsedUrl.searchParams.get('charging');
+        if (battery && parseInt(battery) <= 20 && charging === 'false') {
+          const telegramService = require('./telegramService');
+          telegramService.sendMessage(`⚠️ <b>کاکە سەفا، پاتری مۆبایلەکەت زۆر کەم بووە (${battery}%)!</b> تکایە بیخەرە سەر شەحن.`, { chatId: config.ADMIN_USER_ID }).catch(() => {});
+        }
+
+        const androidBridge = require('../modules/androidBridge');
+        const pending = androidBridge.getPendingCommands();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ commands: pending }));
+      }
+
+      // API: Android Agent Result Report
+      if (pathname === '/api/mobile/result' && req.method === 'POST') {
+        let body = '';
+        req.on('data', c => body += c);
+        req.on('end', async () => {
+          try {
+            const data = body ? JSON.parse(body) : {};
+            if (data.token !== 'safa_droid_secret_2026') {
+              res.writeHead(401, { 'Content-Type': 'application/json' });
+              return res.end(JSON.stringify({ error: 'Unauthorized device' }));
+            }
+
+            const androidBridge = require('../modules/androidBridge');
+            const resolved = androidBridge.resolveCommand(data.cmdId, data.result);
+
+            if (resolved) {
+              const telegramService = require('./telegramService');
+              const resMsg = data.result && data.result.message ? data.result.message : (data.result && data.result.output ? data.result.output : 'فەرمان جێبەجێ کرا');
+              await telegramService.sendMessage(`📲 <b>[مۆبایلی ئەندرۆید]:</b>\n${resMsg}`, { chatId: config.ADMIN_USER_ID });
+            }
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true }));
+          } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: e.message }));
+          }
+        });
+        return;
+      }
+
       // API: Mobile Phone Sync Bridge (iOS Shortcuts / Android Tasker)
       if (pathname === '/api/mobile/sync' && req.method === 'POST') {
         let body = '';

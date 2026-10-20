@@ -412,6 +412,17 @@ async function handleSafaSmartText(text, chatId) {
             ]
           };
           await telegramService.sendMessage(msg, { chatId, replyMarkup: emailKeyboard });
+        } else if (act.type === 'DEVICE') {
+          const cmd = act.item;
+          let msg = `📲 <b>فەرمانی کارپێکردنی مۆبایل (${cmd.type}) نێردرا:</b>\n`;
+          if (cmd.payload && (cmd.payload.target || cmd.payload.number)) {
+            msg += `• ئامانج / ژمارە: <code>${cmd.payload.target || cmd.payload.number}</code>\n`;
+          }
+          if (cmd.payload && cmd.payload.message) {
+            msg += `• دەق: <i>${cmd.payload.message}</i>\n`;
+          }
+          msg += `⚡ فەرمان ڕەوانەی بریکاری SafaDroid لەسەر مۆبایلەکەت کرا...`;
+          await telegramService.sendMessage(msg, { chatId });
         }
       }
     }
