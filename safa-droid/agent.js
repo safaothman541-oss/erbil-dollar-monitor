@@ -9,10 +9,15 @@ const https = require('https');
 
 const SERVER_URL = 'https://safaothman.alwaysdata.net';
 const TOKEN = 'safa_droid_secret_2026';
-const POLL_INTERVAL_MS = 2500;
+const POLL_INTERVAL_MS = 2000;
 
-console.log('🤖 [SafaDroid] Starting Android Autonomous Agent for Safa OS...');
-console.log(`📡 Connected to Cloud Core: ${SERVER_URL}`);
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log('🤖 Safa OS - Android Autonomous Agent');
+console.log('👑 خاوەن: کاکە سەفا (Chief of Staff)');
+console.log(`📡 دۆخی پەیوەندی: دەبەسترێتەوە بە ${SERVER_URL}`);
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+let cachedBattery = { battery: null, charging: null };
 
 function runShell(command) {
   return new Promise((resolve) => {
@@ -51,32 +56,40 @@ function postJson(url, data) {
 
 function getJson(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
+    const req = https.get(url, (res) => {
       let body = '';
       res.on('data', c => body += c);
       res.on('end', () => {
         try { resolve(JSON.parse(body)); } catch (e) { resolve(body); }
       });
-    }).on('error', reject);
+    });
+    req.on('error', reject);
+    req.setTimeout(8000, () => {
+      req.destroy();
+      reject(new Error('Poll timeout'));
+    });
   });
 }
 
-async function getBatteryInfo() {
-  const res = await runShell('termux-battery-status');
-  if (res.success) {
-    try {
+// Background battery refresher (never blocks the main loop)
+async function refreshBatteryInBackground() {
+  try {
+    const res = await runShell('termux-battery-status');
+    if (res.success && res.output) {
       const parsed = JSON.parse(res.output);
-      return {
+      cachedBattery = {
         battery: parsed.percentage,
         charging: parsed.status === 'CHARGING'
       };
-    } catch (e) {}
-  }
-  return { battery: null, charging: null };
+    }
+  } catch (e) {}
 }
 
+setInterval(refreshBatteryInBackground, 60000);
+refreshBatteryInBackground(); // First kick
+
 async function executeCommand(cmd) {
-  console.log(`⚡ [SafaDroid] Executing Command #${cmd.id} (${cmd.type})...`);
+  console.log(`\n⚡ [SafaDroid] جێبەجێکردنی فەرمانی #${cmd.id} (${cmd.type})...`);
   const { type, payload } = cmd;
   let result = {};
 
@@ -85,7 +98,7 @@ async function executeCommand(cmd) {
       case 'CALL': {
         const number = payload.number || payload.target;
         await runShell(`termux-telephony-call ${number}`);
-        result = { success: true, message: `پەیوەندی بەسترا بە ${number}` };
+        result = { success: true, message: `پەیوەندی تەلەفۆنی بەسترا بە ${number}` };
         break;
       }
       case 'SMS': {
@@ -98,7 +111,7 @@ async function executeCommand(cmd) {
       case 'SPEAK': {
         const text = (payload.text || payload.message || '').replace(/"/g, '\\"');
         await runShell(`termux-tts-speak "${text}"`);
-        result = { success: true, message: 'دەنگ لە بڵندگۆی مۆبایلەکەوە خوێندرایەوە.' };
+        result = { success: true, message: `دەنگ لە بڵندگۆی مۆبایلەکەوە خوێندرایەوە: «${text}»` };
         break;
       }
       case 'GPS': {
@@ -130,7 +143,7 @@ async function executeCommand(cmd) {
       }
       case 'PHOTO': {
         await runShell('termux-camera-photo -c 0 safa_cam.jpg');
-        result = { success: true, message: 'وێنە گیرا و پارێزرا.' };
+        result = { success: true, message: 'وێنە گیرا و پارێزرا لە مۆبایلت.' };
         break;
       }
       case 'SHELL': {
@@ -152,14 +165,22 @@ async function executeCommand(cmd) {
     result
   }).catch(e => console.error('[SafaDroid] Result report error:', e.message));
 
-  console.log(`✅ [SafaDroid] Finished Command #${cmd.id}`);
+  console.log(`✅ [SafaDroid] فەرمانی #${cmd.id} بە سەرکەوتوویی تەواو بوو.`);
 }
+
+let firstConnect = true;
 
 async function loop() {
   try {
-    const batt = await getBatteryInfo();
+    const batt = cachedBattery;
     const pollUrl = `${SERVER_URL}/api/mobile/poll?token=${TOKEN}&battery=${batt.battery || ''}&charging=${batt.charging !== null ? batt.charging : ''}`;
     const res = await getJson(pollUrl);
+
+    if (firstConnect) {
+      console.log('🟢 [SafaDroid] بە سەرکەوتوویی پەیوەست بوو بە Safa OS!');
+      console.log('📡 چاوەڕوانی فەرمانە لە تێلیگرامەوە (وەک پەیوەندی، نامە، جی پی ئێس)...');
+      firstConnect = false;
+    }
 
     if (res && res.commands && res.commands.length > 0) {
       for (const cmd of res.commands) {
@@ -167,10 +188,10 @@ async function loop() {
       }
     }
   } catch (e) {
-    // Ignore network hiccups
+    // Network hiccups are normal, retry cleanly
+  } finally {
+    setTimeout(loop, POLL_INTERVAL_MS);
   }
-
-  setTimeout(loop, POLL_INTERVAL_MS);
 }
 
 // Start polling

@@ -648,6 +648,28 @@ async function handleSafaMessage(chatId, text) {
     return;
   }
 
+  // Command: /device or دۆخی مۆبایل
+  if (text === '/device' || text === '📱 دۆخی مۆبایل') {
+    const androidBridge = require('./modules/androidBridge');
+    const st = androidBridge.getDeviceStatus();
+    let reply = `📱 <b>دۆخی ڕاستەوخۆی مۆبایلی ئەندرۆید (SafaDroid):</b>\n\n`;
+    reply += `• <b>دۆخی پەیوەندی:</b> ${st.online ? '🟢 بەستراوەتەوە (Online)' : '🔴 ناچالاکە (Offline)'}\n`;
+    if (st.lastSeen) {
+      reply += `• <b>دوایین پەیوەندی:</b> پێش ${st.secondsAgo} چرکە\n`;
+    }
+    if (st.battery !== null) {
+      reply += `• <b>پاتری:</b> ${st.battery}%\n`;
+    }
+    if (st.charging !== null) {
+      reply += `• <b>شەحن:</b> ${st.charging ? '⚡ لەسەر شەحنە' : '🔌 لە شەحن نییە'}\n`;
+    }
+    if (!st.online) {
+      reply += `\n💡 <i>بۆ دەستپێکردنەوە لەسەر مۆبایلت، لەناو Termux فەرمانی <code>node agent.js</code> بنووسە.</i>`;
+    }
+    await telegramService.sendMessage(reply, { chatId });
+    return;
+  }
+
   // Command: /clear or /reset
   if (text === '/clear' || text === '/reset') {
     conversationManager.clearHistory();

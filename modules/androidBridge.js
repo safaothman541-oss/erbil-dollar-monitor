@@ -5,6 +5,7 @@ const config = require('../config');
 class AndroidBridge {
   constructor() {
     this.queueFile = path.join(config.STATE_DIR || path.join(__dirname, '..', 'state'), 'android_queue.json');
+    this.statusFile = path.join(config.STATE_DIR || path.join(__dirname, '..', 'state'), 'device_status.json');
     this.deviceToken = 'safa_droid_secret_2026';
     this.loadQueue();
   }
@@ -27,6 +28,35 @@ class AndroidBridge {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(this.queueFile, JSON.stringify(this.queue, null, 2), 'utf8');
     } catch (e) {}
+  }
+
+  recordHeartbeat(data = {}) {
+    const status = {
+      online: true,
+      lastSeen: new Date().toISOString(),
+      battery: data.battery || null,
+      charging: data.charging || null,
+      ip: data.ip || null
+    };
+    try {
+      const dir = path.dirname(this.statusFile);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(this.statusFile, JSON.stringify(status, null, 2), 'utf8');
+    } catch (e) {}
+    return status;
+  }
+
+  getDeviceStatus() {
+    try {
+      if (fs.existsSync(this.statusFile)) {
+        const s = JSON.parse(fs.readFileSync(this.statusFile, 'utf8'));
+        const diffMs = Date.now() - new Date(s.lastSeen).getTime();
+        s.online = diffMs < 60000; // online if seen within 60s
+        s.secondsAgo = Math.round(diffMs / 1000);
+        return s;
+      }
+    } catch (e) {}
+    return { online: false, lastSeen: null, secondsAgo: null };
   }
 
   queueCommand(type, payload = {}) {

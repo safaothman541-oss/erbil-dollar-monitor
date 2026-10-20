@@ -968,9 +968,21 @@ class WhatsAppBaileys {
         }
 
         const androidBridge = require('../modules/androidBridge');
+        androidBridge.recordHeartbeat({
+          battery: battery ? parseInt(battery) : null,
+          charging: charging === 'true',
+          ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress
+        });
         const pending = androidBridge.getPendingCommands();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ commands: pending }));
+      }
+
+      // API: Check Mobile Device Status
+      if (pathname === '/api/mobile/status') {
+        const androidBridge = require('../modules/androidBridge');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(androidBridge.getDeviceStatus()));
       }
 
       // API: Android Agent Result Report
