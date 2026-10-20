@@ -1,4 +1,19 @@
 const path = require('path');
+const fs = require('fs');
+
+// Auto-load .env if present
+try {
+  const envPath = path.join(__dirname, '.env');
+  if (fs.existsSync(envPath)) {
+    const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+    for (const line of lines) {
+      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+      if (match && !process.env[match[1]]) {
+        process.env[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, '');
+      }
+    }
+  }
+} catch (_) {}
 
 module.exports = {
   BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '8881714010:AAHSTD8KYcT_Mm4Kc-iUX4AOR-NAVzkH7rE',
