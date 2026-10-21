@@ -7,7 +7,7 @@ const groqService = require('./groqService');
 class CodeActAgent {
   constructor() {
     this.geminiApiKey = process.env.GEMINI_API_KEY || config.GEMINI_API_KEY || '';
-    this.geminiModel = 'gemini-2.0-flash';
+    this.geminiModel = 'gemini-3.5-flash';
     this.maxIterations = 5;
   }
 
@@ -69,11 +69,13 @@ class CodeActAgent {
     }
   }
 
-  // Execute shell command on Linux server
+  // Execute shell command on Linux/Windows server
   async runServerShell(command) {
     return new Promise((resolve) => {
       console.log(`[CodeAct Agent] 🖥️ Executing on server: ${command}`);
-      exec(command, { timeout: 15000, cwd: path.join(__dirname, '..') }, (error, stdout, stderr) => {
+      const isWin = process.platform === 'win32';
+      const shellCmd = isWin ? `powershell -NoProfile -NonInteractive -Command "${command.replace(/"/g, '`"')}"` : command;
+      exec(shellCmd, { timeout: 10000, cwd: path.join(__dirname, '..') }, (error, stdout, stderr) => {
         if (error) {
           resolve({
             success: false,
