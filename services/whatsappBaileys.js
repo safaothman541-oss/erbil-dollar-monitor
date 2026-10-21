@@ -947,13 +947,14 @@ class WhatsAppBaileys {
         }
       }
 
-      // Serve SafaDroid Android APK
-      if (pathname.toLowerCase() === '/safadroid.apk') {
-        const apkPath = path.join(__dirname, '..', 'public', 'SafaDroid.apk');
+      // Serve Android APKs (SafaDroid, CellClaw, etc.)
+      if (pathname.toLowerCase() === '/safadroid.apk' || pathname.toLowerCase() === '/cellclaw.apk') {
+        const filename = pathname.toLowerCase() === '/cellclaw.apk' ? 'CellClaw.apk' : 'SafaDroid.apk';
+        const apkPath = path.join(__dirname, '..', 'public', filename);
         if (fs.existsSync(apkPath)) {
           res.writeHead(200, {
             'Content-Type': 'application/vnd.android.package-archive',
-            'Content-Disposition': 'attachment; filename="SafaDroid.apk"'
+            'Content-Disposition': `attachment; filename="${filename}"`
           });
           return fs.createReadStream(apkPath).pipe(res);
         } else {
