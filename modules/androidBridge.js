@@ -69,10 +69,50 @@ class AndroidBridge {
       }
     });
 
+    let effectiveType = (type || 'SHELL').toUpperCase();
+    const cleanPayload = (typeof payload === 'object' && payload !== null) ? { ...payload } : { message: String(payload || '') };
+
+    // Smart intent mapping: translate raw shell commands to Accessibility Actions
+    if (effectiveType === 'SHELL' && cleanPayload.message) {
+      const msg = cleanPayload.message;
+      if (msg.includes('search_query=')) {
+        try {
+          const match = msg.match(/search_query=([^"&'\s]+)/);
+          if (match && match[1]) {
+            effectiveType = 'YOUTUBE';
+            const q = decodeURIComponent(match[1]);
+            cleanPayload.target = q;
+            cleanPayload.message = q;
+          }
+        } catch (_) {}
+      } else if (/keyevent\s+(3|KEYCODE_HOME)/i.test(msg)) {
+        effectiveType = 'HOME';
+      } else if (/keyevent\s+(4|KEYCODE_BACK)/i.test(msg)) {
+        effectiveType = 'BACK';
+      } else if (/keyevent\s+(187|KEYCODE_APP_SWITCH)/i.test(msg)) {
+        effectiveType = 'RECENTS';
+      } else if (/input\s+tap\s+(\d+)\s+(\d+)/i.test(msg)) {
+        const m = msg.match(/input\s+tap\s+(\d+)\s+(\d+)/i);
+        if (m) {
+          effectiveType = 'TAP';
+          cleanPayload.target = `${m[1]} ${m[2]}`;
+        }
+      } else if (/am\s+start.*(?:-p|-n)\s+([a-zA-Z0-9._]+)/i.test(msg)) {
+        const m = msg.match(/am\s+start.*(?:-p|-n)\s+([a-zA-Z0-9._]+)/i);
+        if (m && m[1]) {
+          effectiveType = 'APP';
+          cleanPayload.target = m[1].split('/')[0];
+        }
+      }
+    }
+
     const cmd = {
       id: 'cmd_' + now,
-      type: type.toUpperCase(),
-      payload,
+      type: effectiveType,
+      payload: cleanPayload,
+      target: cleanPayload.target || '',
+      message: cleanPayload.message || '',
+      ...cleanPayload,
       status: 'PENDING',
       createdAt: new Date().toISOString()
     };
