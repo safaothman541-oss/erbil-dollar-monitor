@@ -947,22 +947,21 @@ class WhatsAppBaileys {
         }
       }
 
-      // Serve Android APKs (SafaDroid, CellClaw, etc.)
-      if (pathname.toLowerCase() === '/safadroid.apk' || pathname.toLowerCase() === '/cellclaw.apk') {
-        const filename = pathname.toLowerCase() === '/cellclaw.apk' ? 'CellClaw.apk' : 'SafaDroid.apk';
-        const apkPath = path.join(__dirname, '..', 'public', filename);
-        if (fs.existsSync(apkPath)) {
-          res.writeHead(200, {
-            'Content-Type': 'application/vnd.android.package-archive',
-            'Content-Disposition': `attachment; filename="${filename}"`
-          });
-          return fs.createReadStream(apkPath).pipe(res);
-        } else {
-          // Redirect to latest GitHub Releases build
-          res.writeHead(302, {
-            'Location': 'https://github.com/safaothman541-oss/erbil-dollar-monitor/releases/latest/download/SafaDroid.apk'
-          });
-          return res.end();
+      // Serve Any Android APK from public/ (SafaDroid.apk, CellClaw.apk, OpenDroid.apk, etc.)
+      if (pathname.toLowerCase().endsWith('.apk')) {
+        const reqName = path.basename(pathname);
+        const publicDir = path.join(__dirname, '..', 'public');
+        if (fs.existsSync(publicDir)) {
+          const files = fs.readdirSync(publicDir);
+          const match = files.find(f => f.toLowerCase() === reqName.toLowerCase());
+          if (match) {
+            const fullPath = path.join(publicDir, match);
+            res.writeHead(200, {
+              'Content-Type': 'application/vnd.android.package-archive',
+              'Content-Disposition': `attachment; filename="${match}"`
+            });
+            return fs.createReadStream(fullPath).pipe(res);
+          }
         }
       }
 
