@@ -32,7 +32,6 @@ jobs:
 
       - name: Generate Gradle Wrapper 8.5
         run: |
-          yes | sdkmanager --licenses || true
           cd android-agent
           gradle wrapper --gradle-version 8.5 --distribution-type bin
           chmod +x gradlew
