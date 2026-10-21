@@ -1242,7 +1242,23 @@ async function backgroundCycle() {
   }
 }
 
-let isPollingActive = true;
+let isPollingActive = false; // Using Webhook by default to prevent 409 conflicts
+
+global.processTelegramUpdate = async function(update) {
+  try {
+    if (update.callback_query) {
+      await handleCallback(update.callback_query).catch(e => console.error('[Webhook Callback Error]:', e.message));
+    } else if (update.message) {
+      if (update.message.voice && String(update.message.chat.id) === String(config.ADMIN_USER_ID)) {
+        await handleSafaVoice(update.message).catch(e => console.error('[Webhook Voice Error]:', e.message));
+      } else {
+        await handleMessage(update.message).catch(e => console.error('[Webhook Message Error]:', e.message));
+      }
+    }
+  } catch (err) {
+    console.error('[processTelegramUpdate] Catch Error:', err.message);
+  }
+};
 
 async function runPollingLoop() {
   while (isPollingActive) {
