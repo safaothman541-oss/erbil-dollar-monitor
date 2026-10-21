@@ -111,6 +111,48 @@ class ConversationManager {
       };
     }
 
+    // 7. CAMERA: کامێرا لەسەر شاشە / وێنەگرتن
+    if (/(?:کامێرا|کامێرای|وێنە|وێنەیەک|camera|photo)/i.test(clean)) {
+      const cmd = androidBridge.queueCommand('CAMERA', {});
+      return {
+        reply: `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ ئەپی کامێرای مۆبایلت لەسەر شاشە دەکرێتەوە و وێنە دەگرێت 📸`,
+        actions: [{ type: 'DEVICE', item: cmd }]
+      };
+    }
+
+    // 8. TYPE: نووسین لەسەر شاشە / کیبۆرد
+    const typeMatch = clean.match(/(?:لەسەر کیبۆرد|لەسەر شاشە|تایپ بکە|بنووسە|بنوسە|type)\s*(?:ئەو شتە|ئەم دەقە|دەقی|بنوسە|بنووسە)?\s*[:«"“]?\s*(.*)/i);
+    if (typeMatch && typeMatch[1] && typeMatch[1].length > 0) {
+      let textToType = typeMatch[1].replace(/^(?:بنوسە|بنووسە|type)\s*[:«"“]?\s*/i, '').replace(/[»"”]/g, '').trim();
+      if (textToType) {
+        const cmd = androidBridge.queueCommand('TYPE', { message: textToType, text: textToType });
+        return {
+          reply: `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ دەقی <i>«${textToType}»</i> لەسەر شاشەی مۆبایلەکەت دەنووسرێت ⌨️`,
+          actions: [{ type: 'DEVICE', item: cmd }]
+        };
+      }
+    }
+
+    // 9. APP: کردنەوەی ئەپەکان لەسەر شاشە
+    const appMatch = clean.match(/(?:ئەپی\s*)?(یوتیوب|youtube|واتسئاپ|واتساب|whatsapp|کرۆم|گووگڵ|chrome|سێتینگ|ڕێکخستن|settings|حاسیبە|کالکۆلەیتەر|calculator)\s*(?:بکەرەوە|open)?/i);
+    if (appMatch) {
+      const targetApp = appMatch[1];
+      const cmd = androidBridge.queueCommand('APP', { target: targetApp });
+      return {
+        reply: `فەرمانت بەسەر چاو کاکە سەفا، ئەپی <b>${targetApp}</b> دەستبەجێ لەسەر شاشەی مۆبایلەکەت دەکرێتەوە 📱`,
+        actions: [{ type: 'DEVICE', item: cmd }]
+      };
+    }
+
+    // 10. HOME: پەڕەی سەرەکی
+    if (/(?:بڕۆ بۆ سەر شاشە|پەڕەی سەرەکی|home screen|home)/i.test(clean)) {
+      const cmd = androidBridge.queueCommand('HOME', {});
+      return {
+        reply: `فەرمانت بەسەر چاو کاکە سەفا، مۆبایلەکەت دەچێتە سەر پەڕەی سەرەکی 🏠`,
+        actions: [{ type: 'DEVICE', item: cmd }]
+      };
+    }
+
     return null;
   }
 
