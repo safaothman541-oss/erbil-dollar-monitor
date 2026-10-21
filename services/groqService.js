@@ -38,7 +38,7 @@ class GroqService {
   async fastChat(messages, options = {}) {
     if (!this.apiKey) throw new Error('GROQ_API_KEY is missing.');
 
-    const model = options.model || 'openai/gpt-oss-120b';
+    const model = options.model || 'llama-3.3-70b-versatile';
     const payload = {
       model,
       messages,
@@ -79,7 +79,7 @@ class GroqService {
   async chatWithTools(messages, tools, options = {}) {
     if (!this.apiKey) throw new Error('GROQ_API_KEY is missing.');
 
-    const model = options.model || 'openai/gpt-oss-120b';
+    const model = options.model || 'llama-3.3-70b-versatile';
     const payload = {
       model,
       messages,
