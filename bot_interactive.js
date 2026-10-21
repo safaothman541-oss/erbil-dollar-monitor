@@ -1,3 +1,17 @@
+// Prevent duplicate instance conflicts if deployed on secondary clouds (Render/Railway)
+if (process.env.RENDER || process.env.RAILWAY_ENVIRONMENT) {
+  console.log('[Environment] Detected auxiliary runner (Render/Railway). Master bot runs on AlwaysData. Entering standby mode...');
+  const http = require('http');
+  const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Vertex Standby Worker (Master is running 24/7 on AlwaysData)');
+  });
+  server.listen(process.env.PORT || 3000, () => {
+    console.log('[Standby] Health check HTTP server listening on port', process.env.PORT || 3000);
+  });
+  return;
+}
+
 const config = require('./config');
 const telegramService = require('./services/telegramService');
 const zohoService = require('./services/zohoService');
