@@ -53,6 +53,7 @@ module.exports = {
 
   // Safa OS & Executive AI Config
   GROQ_API_KEY: process.env.GROQ_API_KEY || '',
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
   LOCATION: {
     NAME: 'هەولێر (Erbil)',
     LATITUDE: 36.1911,
