@@ -130,6 +130,20 @@ const AI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'youtube_play',
+      description: 'Search and play any video, music, or song directly on YouTube (e.g., بڕۆ یوتیوب گۆرانی کوردی لێبدە, play a song on YouTube, search YouTube)',
+      parameters: {
+        type: 'object',
+        properties: {
+          search_query: { type: 'string', description: 'The search term for YouTube, e.g. "gorani kurdi"' }
+        },
+        required: ['search_query']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'autonomous_gui_agent',
       description: 'Call this for any multi-step autonomous task requiring screen interaction, browsing the phone UI, searching and installing apps from Play Store, or navigating apps step-by-step (e.g., بڕۆ پلەی ستۆر فڵان ئەپ دابەزێنە, بڕۆ ناو فڵان بەرنامە و شتێک بکە).',
       parameters: {
@@ -221,7 +235,21 @@ class ConversationManager {
           let args = {};
           try { args = JSON.parse(tc.function.arguments); } catch (_) {}
 
-          if (fn === 'whatsapp_send') {
+          if (fn === 'youtube_play') {
+            const query = args.search_query || 'gorani kurdi';
+            const encoded = encodeURIComponent(query).replace(/%20/g, '+');
+            androidBridge.clearQueue();
+            const cmd = androidBridge.queueCommand('SHELL', {
+              message: `am start -a android.intent.action.VIEW -d "https://www.youtube.com/results?search_query=${encoded}" com.google.android.youtube`
+            });
+            setTimeout(() => {
+              androidBridge.queueCommand('SHELL', { message: 'input tap 540 650' });
+            }, 2000);
+            actionsExecuted.push({ type: 'DEVICE', item: cmd });
+            if (!replyText) {
+              replyText = `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ ئەپی YouTube دەکرێتەوە، گەڕان بۆ «${query}» دەکرێت و گۆرانییەکە پەخش دەکرێت 🎵📱`;
+            }
+          } else if (fn === 'whatsapp_send') {
             const recipient = args.recipient || 'هاوڕێ';
             const msg = args.message || 'سڵاو';
             const cmd = androidBridge.queueCommand('WHATSAPP_SEND', { target: recipient, message: msg });

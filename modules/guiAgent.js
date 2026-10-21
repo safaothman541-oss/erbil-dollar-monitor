@@ -68,15 +68,13 @@ class GuiAgent {
       if (fs.existsSync(UI_DUMP_FILE)) fs.unlinkSync(UI_DUMP_FILE);
     } catch (_) {}
 
-    // 2. Queue UI_DUMP or Shell uiautomator dump on phone
+    // 2. Queue single UI_DUMP command on phone
     androidBridge.queueCommand('UI_DUMP', {});
-    // Also send shell fallback just in case phone daemon is on older version
-    androidBridge.queueCommand('SHELL', { message: 'uiautomator dump /sdcard/Download/window_dump.xml' });
 
-    // 3. Poll for fresh UI_DUMP_FILE up to 4 seconds
+    // 3. Poll for fresh UI_DUMP_FILE up to 3 seconds
     const start = Date.now();
-    while (Date.now() - start < 4000) {
-      await new Promise(r => setTimeout(r, 250));
+    while (Date.now() - start < 3000) {
+      await new Promise(r => setTimeout(r, 200));
       if (fs.existsSync(UI_DUMP_FILE)) {
         const xml = fs.readFileSync(UI_DUMP_FILE, 'utf8');
         if (xml && xml.length > 100) return xml;
@@ -93,6 +91,7 @@ class GuiAgent {
     }
 
     this.isBusy = true;
+    androidBridge.clearQueue();
     const chatId = options.chatId || config.ADMIN_USER_ID;
     const maxSteps = options.maxSteps || 8;
     const history = [];
