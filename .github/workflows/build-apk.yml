@@ -25,21 +25,15 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle
+      - name: Setup Gradle 8.5
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.5'
 
-      - name: Generate Gradle Wrapper 8.5
-        run: |
-          cd android-agent
-          gradle wrapper --gradle-version 8.5 --distribution-type bin
-          chmod +x gradlew
-
       - name: Build Debug APK with Gradle
         run: |
           cd android-agent
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          gradle assembleDebug --no-daemon --stacktrace
 
       - name: Prepare APK File
         run: |
