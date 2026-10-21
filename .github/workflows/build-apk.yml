@@ -25,14 +25,12 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Generate Gradle Wrapper
+      - name: Accept Android Licenses & Generate Wrapper
         run: |
+          yes | sdkmanager --licenses || true
           cd android-agent
           gradle wrapper
           chmod +x gradlew
