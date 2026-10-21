@@ -231,6 +231,53 @@ while true; do
         FEEDBACK="شوێنی GPS مۆبایل: $LOC 📍"
         ;;
 
+      UI_DUMP)
+        echo "🔍 پشکنینی نەخشەی شاشە (UI Dump)..."
+        DUMP_PATH="/sdcard/Download/window_dump.xml"
+        rm -f "$DUMP_PATH" 2>/dev/null || true
+        run_adb_cmd "uiautomator dump $DUMP_PATH" >/dev/null 2>&1 || true
+        if [ ! -s "$DUMP_PATH" ]; then
+          DUMP_PATH="$HOME/window_dump.xml"
+          rm -f "$DUMP_PATH" 2>/dev/null || true
+          run_adb_cmd "uiautomator dump $DUMP_PATH" >/dev/null 2>&1 || true
+        fi
+
+        if [ -s "$DUMP_PATH" ]; then
+          echo "📤 بارکردنی نەخشەی شاشە بۆ سێرڤەری Safa OS..."
+          curl -s --max-time 10 --data-binary "@$DUMP_PATH" -H "Content-Type: application/xml" "$SERVER_URL/api/mobile/upload-ui-dump?token=$TOKEN" >/dev/null 2>&1
+          SUCCESS=true
+          FEEDBACK="نەخشەی شاشە بە سەرکەوتوویی بارکرا 🗺️"
+        else
+          SUCCESS=false
+          FEEDBACK="نەتوانرا نەخشەی شاشە دەربهێنرێت"
+        fi
+        ;;
+
+      TAP)
+        X="$TARGET"
+        Y="$MESSAGE"
+        echo "👆 پەنجەنان لە خاڵی ($X, $Y)..."
+        run_adb_cmd "input tap $X $Y"
+        SUCCESS=true
+        FEEDBACK="کلیک کرا لە ($X, $Y)"
+        ;;
+
+      KEY)
+        KEY_CODE="$TARGET"
+        [ -z "$KEY_CODE" ] && KEY_CODE="$MESSAGE"
+        echo "🔘 داگرتنی دوگمەی سیستەم: $KEY_CODE..."
+        run_adb_cmd "input keyevent $KEY_CODE"
+        SUCCESS=true
+        FEEDBACK="دوگمەی $KEY_CODE داگیرا"
+        ;;
+
+      SWIPE)
+        echo "📜 ڕاکێشانی شاشە (Swipe)..."
+        run_adb_cmd "input swipe 500 1600 500 400 300"
+        SUCCESS=true
+        FEEDBACK="شاشە ڕاکێشرا"
+        ;;
+
       HOME)
         run_adb_cmd "input keyevent 3"
         SUCCESS=true

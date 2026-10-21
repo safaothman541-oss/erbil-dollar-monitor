@@ -1106,6 +1106,32 @@ class WhatsAppBaileys {
         return;
       }
 
+      // API: SafaDroid Screen UI Dump Upload
+      if (pathname === '/api/mobile/upload-ui-dump' && req.method === 'POST') {
+        const token = parsedUrl.searchParams.get('token');
+        if (token !== 'safa_droid_secret_2026') {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: 'Unauthorized device' }));
+        }
+
+        const chunks = [];
+        req.on('data', chunk => chunks.push(chunk));
+        req.on('end', () => {
+          try {
+            const buffer = Buffer.concat(chunks);
+            const stateDir = path.join(__dirname, '..', 'state');
+            if (!fs.existsSync(stateDir)) fs.mkdirSync(stateDir, { recursive: true });
+            fs.writeFileSync(path.join(stateDir, 'latest_ui_dump.xml'), buffer);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, bytes: buffer.length }));
+          } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: e.message }));
+          }
+        });
+        return;
+      }
+
       // API: Mobile Phone Sync Bridge (iOS Shortcuts / Android Tasker)
       if (pathname === '/api/mobile/sync' && req.method === 'POST') {
         let body = '';

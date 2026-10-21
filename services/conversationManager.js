@@ -130,6 +130,20 @@ const AI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'autonomous_gui_agent',
+      description: 'Call this for any multi-step autonomous task requiring screen interaction, browsing the phone UI, searching and installing apps from Play Store, or navigating apps step-by-step (e.g., بڕۆ پلەی ستۆر فڵان ئەپ دابەزێنە, بڕۆ ناو فڵان بەرنامە و شتێک بکە).',
+      parameters: {
+        type: 'object',
+        properties: {
+          task_goal: { type: 'string', description: 'The exact multi-step goal to accomplish on the phone' }
+        },
+        required: ['task_goal']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'run_shell',
       description: 'Execute an advanced bash or ADB shell command on Android',
       parameters: {
@@ -272,6 +286,12 @@ class ConversationManager {
             const saved = secondBrain.addTask(args);
             actionsExecuted.push({ type: 'TASK', item: saved });
             if (!replyText) replyText = `ئەرکی «${args.task}» بە سەرکەوتوویی خرایە کارنامەکەتەوە 📝`;
+          } else if (fn === 'autonomous_gui_agent') {
+            const taskGoal = args.task_goal || userMessage;
+            const guiAgent = require('../modules/guiAgent');
+            guiAgent.executeAutonomousTask(taskGoal, { chatId: config.ADMIN_USER_ID }).catch(e => console.error('[GuiAgent Task Error]', e));
+            actionsExecuted.push({ type: 'GUI_AGENT', item: { goal: taskGoal } });
+            if (!replyText) replyText = `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ بریکاری سەربەخۆ (Autonomous GUI Agent) دەستی کرد بە پشکنینی شاشە و جێبەجێکردنی فەرمانەکە: <i>«${taskGoal}»</i> 🤖📱`;
           } else if (fn === 'run_shell') {
             const cmd = androidBridge.queueCommand('SHELL', { message: args.command });
             actionsExecuted.push({ type: 'DEVICE', item: cmd });
