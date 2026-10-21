@@ -106,6 +106,13 @@ class AndroidBridge {
       }
     }
 
+    if (!cleanPayload.target && cleanPayload.message) {
+      cleanPayload.target = cleanPayload.message;
+    }
+    if (!cleanPayload.message && cleanPayload.target) {
+      cleanPayload.message = cleanPayload.target;
+    }
+
     const cmd = {
       id: 'cmd_' + now,
       type: effectiveType,
