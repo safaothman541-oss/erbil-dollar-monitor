@@ -21,8 +21,34 @@ class CodeActAgent {
       {
         type: 'function',
         function: {
+          name: 'execute_phone_ui_action',
+          description: 'Natively control Safa\'s Android phone via SafaDroid Accessibility Service (OpenRing Architecture). Use this for all phone GUI operations: open apps, search/play YouTube, click text on screen, tap coordinates, type text, go home, go back, show recent apps, pull down notifications.',
+          parameters: {
+            type: 'object',
+            properties: {
+              action: {
+                type: 'string',
+                enum: ['APP', 'YOUTUBE', 'TAP_TEXT', 'TAP', 'TYPE', 'HOME', 'BACK', 'RECENTS', 'NOTIFICATIONS'],
+                description: 'The native Accessibility UI action'
+              },
+              target: {
+                type: 'string',
+                description: 'Target app name (youtube, whatsapp, telegram, chrome, etc.), text string to click on screen, query to search on youtube, or x y coordinates'
+              },
+              message: {
+                type: 'string',
+                description: 'Text to type into input field, or additional parameter'
+              }
+            },
+            required: ['action']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
           name: 'execute_phone_shell',
-          description: 'Execute any raw ADB / Linux shell command on Safa\'s Android phone via root/Shizuku (e.g. am start, input tap X Y, input keyevent, pm, dumpsys, settings, screencap, etc.). Use this for ANY phone action.',
+          description: 'Execute any raw ADB / Linux shell command on Safa\'s Android phone via root/Shizuku. Automatically mapped to native actions when possible.',
           parameters: {
             type: 'object',
             properties: {
@@ -53,6 +79,20 @@ class CodeActAgent {
         }
       }
     ];
+  }
+
+  // Execute native UI action on Android phone via SafaDroid Accessibility Engine
+  async runPhoneUIAction(action, target = '', message = '') {
+    try {
+      console.log(`[CodeAct Agent] 📱 SafaDroid UI Action: ${action} (target=${target}, msg=${message})`);
+      const res = await androidBridge.executeCommandAndWait(action, { target, message }, 10000);
+      return {
+        success: res.success,
+        output: res.message || (res.success ? 'SafaDroid action completed.' : 'Action failed.')
+      };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   }
 
   // Execute shell command on Android phone via androidBridge
@@ -96,22 +136,30 @@ class CodeActAgent {
 
   // Run the autonomous agent loop using Gemini 2.0 Flash or Fallback
   async run(userGoal, conversationHistory = []) {
-    const systemPrompt = `تۆ بریکاری سەربەخۆی کۆد و تێرمیناڵیت لە سیستەمی Safa OS (Autonomous Code-Act & Shell Agent).
-خاوەنی سیستەمەکە کاکە سەفایە (ئەندازیاری ICT).
-تۆ فێری هیچ یاسایەکی دیاریکراو نەکراویت. تۆ تەواوی مێشک و ژیری خۆت بەکاردێنیت و بە بیرکردنەوە و لێکدانەوەی خۆت (Reasoning) فەرمانەکان جێبەجێ دەکەیت بە لێدانی کۆماندی شێڵ:
+    const systemPrompt = `تۆ بریکاری سەربەخۆی کۆد، ڕیزنینگ و کۆنتڕۆڵی مۆبایلی لە سیستەمی Safa OS (Autonomous Code-Act & OpenRing UI Agent).
+خاوەنی سیستەمەکە کاکە سەفایە (ئەندازیاری ICT لە هەولێر).
+تۆ فێری هیچ یاسایەکی دیاریکراو نەکراویت. تۆ تەواوی مێشک و ژیری خۆت بەکاردێنیت و بە بیرکردنەوە و لێکدانەوەی خۆت (Autonomous Reasoning) فەرمانەکان جێبەجێ دەکەیت:
 
-ئەم دوو توانایەت لە بەردەستە:
-١. execute_phone_shell(command): فەرمانی شێڵی ئەندرۆید (ADB/Linux) لەسەر مۆبایلی سەفا لێدەدات (وەک: am start, input tap, input text, input keyevent, pm, dumpsys, settings...).
-٢. execute_server_shell(command): فەرمانی لینوکس/بەش لەسەر سێرڤەرەکەی سەفا لێدەدات (وەک: node, python3, curl, jq, git, بەستنەوە بە زۆهۆ و فایلەکان...).
+ئەم سێ توانایەت لە بەردەستە:
+١. execute_phone_ui_action(action, target, message): کۆنتڕۆڵی ڕاستەوخۆ و فەرمیی مۆبایلی کاکە سەفا دەکات لە ڕێگەی ئەپی SafaDroid (OpenRing Accessibility Engine):
+   - action: 'APP' (بۆ کردنەوەی ئەپ وەک youtube, whatsapp, telegram, chrome...)
+   - action: 'YOUTUBE' (بۆ لێدانی ڕاستەوخۆی گۆرانی و ڤیدیۆ لە یوتیوب، لە target ناوی گۆرانییەکە بنووسە)
+   - action: 'TAP_TEXT' (بۆ کلیک کردن لەسەر هەر نووسینێک لەسەر شاشە)
+   - action: 'TAP' (بۆ کلیک لەسەر خاڵی شاشە x y)
+   - action: 'TYPE' (بۆ نووسینی دەق لە ناو فۆکەسی شاشە)
+   - action: 'HOME' (گەڕانەوە بۆ پەڕەی سەرەکی)
+   - action: 'BACK' (گەڕانەوە بۆ دواوە)
+   - action: 'RECENTS' (کردنەوەی ئەپە کراوەکان)
+   - action: 'NOTIFICATIONS' (داگرتنی پەردەی ئاگادارییەکان)
+٢. execute_phone_shell(command): فەرمانی خاوی ADB / Shell لەسەر مۆبایلی سەفا.
+٣. execute_server_shell(command): فەرمانی لینوکس/بەش لەسەر سێرڤەرەکەی سەفا (node, python3, curl, git...).
 
 یاساکانی کارکردنی سەربەخۆ:
-- کاتێک سەفا هەر فەرمانێک دەدات (هەرچییەک بێت: یوتیوب، مۆسیقا، داتابەیس، سێرڤەر، فایلی نوێ، وێنە، فایل، تاقیکردنەوە):
-  ١. بە ثینکئنگی خۆت بیر بکەوە چ کۆماندێکی لینوکس یان ئەندرۆید پێویستە.
-  ٢. کۆماندەکە ڕەن بکە بە execute_phone_shell یان execute_server_shell.
-  ٣. سەیری دەرئەنجام (stdout / stderr) بکە. ئەگەر هەڵەیەک هەبوو، خۆت چاکی بکەرەوە.
-  ٤. لە کۆتاییدا بە زمانی کوردیی سۆرانیی کورت، بڕیاردەر و بەڕێز وەڵامی کاکە سەفا بدەرەوە.
-- هەرگیز درۆ مەکە؛ تەنیا کاتێک بڵێ کارەکە کرا کە بە چاوی خۆت بینی کۆماندەکە سەرکەوتووانە تەواو بوو.
-- بۆ فەرمانەکانی مۆبایل و کردنەوەی ئەپەکان، هەمیشە پاکێجی ڕاستەقینە دیاری بکە (بۆ نموونە بۆ یوتیوب: am start -a android.intent.action.VIEW -d "https://www.youtube.com/results?search_query=..." com.google.android.youtube) تا ڕاستەوخۆ ئەپەکە لەسەر شاشە دەربکەوێت.`;
+- کاتێک سەفا هەر فەرمانێک دەدات (کردنەوەی ئەپ، یوتیوب، کلیک لەسەر شاشە، فەرمانی سێرڤەر یان هەر کارێک):
+  ١. خۆت بیر بکەوە کامیان باشترینە و بە execute_phone_ui_action یان ئەوانی تر جێبەجێی بکە.
+  ٢. سەیری دەرئەنجام بکە، ئەگەر هەڵەیەک هەبوو، خۆت چاکی بکەرەوە.
+  ٣. لە کۆتاییدا بە زمانی کوردیی سۆرانیی کورت، بڕیاردەر و بەڕێز وەڵامی کاکە سەفا بدەرەوە.
+- هەرگیز درۆ مەکە؛ تەنیا کاتێک بڵێ کارەکە کرا کە بە چاوی خۆت بینی کۆماندەکە سەرکەوتووانە تەواو بوو.`;
 
     // 1. If Gemini API Key is available, use Google Gemini 2.0 Flash natively
     if (this.geminiApiKey) {
@@ -129,6 +177,19 @@ class CodeActAgent {
     const toolsDeclaration = [
       {
         functionDeclarations: [
+          {
+            name: 'execute_phone_ui_action',
+            description: 'Natively control Safa\'s Android phone via SafaDroid Accessibility Service (OpenRing Architecture). Use this for all phone GUI operations: open apps, search/play YouTube, click text on screen, tap coordinates, type text, go home, go back, show recent apps, pull down notifications.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                action: { type: 'STRING', description: 'The UI action: APP, YOUTUBE, TAP_TEXT, TAP, TYPE, HOME, BACK, RECENTS, NOTIFICATIONS' },
+                target: { type: 'STRING', description: 'Target app name, text to click, query for youtube, or x y coordinates' },
+                message: { type: 'STRING', description: 'Text to type into focused input or extra parameter' }
+              },
+              required: ['action']
+            }
+          },
           {
             name: 'execute_phone_shell',
             description: 'Execute raw ADB/Linux shell command on Safa\'s Android phone via root/Shizuku',
@@ -218,7 +279,10 @@ class CodeActAgent {
       const args = functionCallPart.functionCall.args || {};
       let execResult = null;
 
-      if (fn === 'execute_phone_shell') {
+      if (fn === 'execute_phone_ui_action') {
+        execResult = await this.runPhoneUIAction(args.action, args.target, args.message);
+        executedActions.push({ type: 'PHONE_UI', action: args.action, target: args.target, message: args.message, result: execResult });
+      } else if (fn === 'execute_phone_shell') {
         execResult = await this.runPhoneShell(args.command);
         executedActions.push({ type: 'PHONE_SHELL', command: args.command, result: execResult });
       } else if (fn === 'execute_server_shell') {
@@ -278,7 +342,10 @@ class CodeActAgent {
         try { args = JSON.parse(tc.function.arguments); } catch (_) {}
 
         let execResult = null;
-        if (fn === 'execute_phone_shell') {
+        if (fn === 'execute_phone_ui_action') {
+          execResult = await this.runPhoneUIAction(args.action, args.target, args.message);
+          executedActions.push({ type: 'PHONE_UI', action: args.action, target: args.target, message: args.message, result: execResult });
+        } else if (fn === 'execute_phone_shell') {
           execResult = await this.runPhoneShell(args.command);
           executedActions.push({ type: 'PHONE_SHELL', command: args.command, result: execResult });
         } else if (fn === 'execute_server_shell') {
