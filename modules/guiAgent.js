@@ -61,30 +61,28 @@ class GuiAgent {
     return elements.slice(0, 45); // Keep top 45 meaningful interactive elements
   }
 
-  // Request fresh UI dump from phone and wait for upload
+  // Request fresh UI dump from phone and wait for upload (Zero stale cache)
   async fetchLiveUi() {
-    // Record current mtime
-    const initialMtime = fs.existsSync(UI_DUMP_FILE) ? fs.statSync(UI_DUMP_FILE).mtimeMs : 0;
-    
-    // Queue UI_DUMP command on phone
-    androidBridge.queueCommand('UI_DUMP', {});
+    // 1. Delete any old cached dump so we NEVER act on stale screen data
+    try {
+      if (fs.existsSync(UI_DUMP_FILE)) fs.unlinkSync(UI_DUMP_FILE);
+    } catch (_) {}
 
-    // Poll for updated UI_DUMP_FILE up to 4 seconds
+    // 2. Queue UI_DUMP or Shell uiautomator dump on phone
+    androidBridge.queueCommand('UI_DUMP', {});
+    // Also send shell fallback just in case phone daemon is on older version
+    androidBridge.queueCommand('SHELL', { message: 'uiautomator dump /sdcard/Download/window_dump.xml' });
+
+    // 3. Poll for fresh UI_DUMP_FILE up to 4 seconds
     const start = Date.now();
-    while (Date.now() - start < 4500) {
-      await new Promise(r => setTimeout(r, 300));
+    while (Date.now() - start < 4000) {
+      await new Promise(r => setTimeout(r, 250));
       if (fs.existsSync(UI_DUMP_FILE)) {
-        const currentMtime = fs.statSync(UI_DUMP_FILE).mtimeMs;
-        if (currentMtime > initialMtime) {
-          const xml = fs.readFileSync(UI_DUMP_FILE, 'utf8');
-          if (xml && xml.length > 100) return xml;
-        }
+        const xml = fs.readFileSync(UI_DUMP_FILE, 'utf8');
+        if (xml && xml.length > 100) return xml;
       }
     }
 
-    if (fs.existsSync(UI_DUMP_FILE)) {
-      return fs.readFileSync(UI_DUMP_FILE, 'utf8');
-    }
     return '';
   }
 
@@ -165,11 +163,6 @@ Output strictly valid JSON with this exact schema:
         console.log(`[GuiAgent] Decision Step ${step}:`, decision.thought, `Action: ${decision.action}`);
         history.push({ step, action: decision.action, thought: decision.thought });
 
-        // Update Safa on Telegram
-        if (decision.kurdishUpdate) {
-          await telegramService.sendMessage(`⚡ <b>هەنگاوی ${step}:</b> ${decision.kurdishUpdate}`, { chatId }).catch(() => {});
-        }
-
         // Check if finished
         if (decision.isFinished || decision.action === 'finish') {
           await telegramService.sendMessage(`✅ <b>فەرمان بە سەرکەوتوویی تەواو بوو کاکە سەفا!</b>\nئامانج: <i>${userGoal}</i>`, { chatId });
@@ -177,7 +170,9 @@ Output strictly valid JSON with this exact schema:
           return { success: true, message: 'Goal completed successfully' };
         }
 
-        // Execute action on phone
+        // Execute action on phone and WAIT for real device confirmation
+        let execRes = { success: false, message: 'هیچ کردارێک دیاری نەکراوە' };
+
         if (decision.action === 'tap') {
           let tapX = decision.x;
           let tapY = decision.y;
@@ -189,21 +184,41 @@ Output strictly valid JSON with this exact schema:
             }
           }
           if (tapX && tapY) {
-            androidBridge.queueCommand('TAP', { target: tapX.toString(), message: tapY.toString() });
+            execRes = await androidBridge.executeDeviceAction('tap', { x: tapX, y: tapY }, 7000);
+          } else {
+            execRes = { success: false, message: 'شوێنی کلیک دیاری نەکراوە لەسەر شاشە' };
           }
         } else if (decision.action === 'type') {
           if (decision.text) {
-            androidBridge.queueCommand('TYPE', { message: decision.text, target: decision.text });
+            execRes = await androidBridge.executeDeviceAction('type', { text: decision.text }, 7000);
           }
         } else if (decision.action === 'key') {
           const code = decision.keyCode || 66;
-          androidBridge.queueCommand('KEY', { target: code.toString() });
+          execRes = await androidBridge.executeDeviceAction('key', { code }, 7000);
         } else if (decision.action === 'open_app') {
-          androidBridge.queueCommand('APP', { target: decision.text || 'playstore' });
+          let app = decision.target || decision.text || decision.app;
+          if (!app) {
+            if (/youtube|یوتیوب/i.test(userGoal)) app = 'youtube';
+            else if (/whatsapp|واتس/i.test(userGoal)) app = 'whatsapp';
+            else if (/play\s*store|پلەی/i.test(userGoal)) app = 'playstore';
+            else app = 'settings';
+          }
+          execRes = await androidBridge.executeDeviceAction('open_app', { app }, 7000);
         }
 
-        // Wait for screen transition
-        await new Promise(r => setTimeout(r, 1500));
+        // Strictly verify execution outcome before reporting progress to user
+        if (execRes && execRes.success) {
+          const msg = decision.kurdishUpdate || execRes.message;
+          await telegramService.sendMessage(`⚡ <b>هەنگاوی ${step}:</b> ${msg}`, { chatId }).catch(() => {});
+        } else {
+          const errMsg = execRes ? execRes.message : 'نەتوانرا لەسەر مۆبایل جێبەجێ بکرێت';
+          await telegramService.sendMessage(`⚠️ <b>هەنگاوی ${step} شکستی هێنا:</b> ${errMsg}\nپرۆسەکە دەستبەجێ ڕاگیرا تا زانیاری هەڵە دروست نەبێت.`, { chatId }).catch(() => {});
+          this.isBusy = false;
+          return { success: false, message: errMsg };
+        }
+
+        // Screen transition settle time
+        await new Promise(r => setTimeout(r, 1200));
       }
 
       await telegramService.sendMessage(`⚠️ بە ئەوپەڕی توانای هەنگاوەکان (${maxSteps} هەنگاو) هەوڵدرا، پرۆسەکە وەستا تا ڕێنمایی نوێ بدەیت.`, { chatId });
