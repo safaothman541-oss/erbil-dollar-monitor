@@ -67,6 +67,12 @@ class DailyOutreach {
         const raw = fs.readFileSync(STATE_FILE, 'utf8');
         this.state = Object.assign(this.state, JSON.parse(raw));
       }
+      // CRITICAL CRASH RECOVERY: If process was killed, isRunning cannot still be true in a new process!
+      if (this.state.isRunning) {
+        console.warn('[DailyOutreach] ⚠️ Detected stale isRunning: true from previous crash. Auto-resetting isRunning = false.');
+        this.state.isRunning = false;
+        this.saveState();
+      }
     } catch (e) {
       console.error('[DailyOutreach] Failed to load state:', e.message);
     }
@@ -520,6 +526,13 @@ class DailyOutreach {
       return { status: 'paused' };
     }
 
+    // Auto-recover any items that failed previously due to temporary connection glitches
+    (this.queue.items || []).forEach(it => {
+      if (it.enabled && it.status === 'error' && (!it.error || /connect|closed|socket|timeout|timedout/i.test(it.error))) {
+        it.status = 'pending';
+      }
+    });
+
     let enabledItems = (this.queue.items || []).filter(i => i.enabled && i.status === 'pending');
     if (enabledItems.length === 0) {
       console.log('[DailyOutreach] No pending enabled items in queue. Preparing fresh queue of 100 now...');
@@ -539,8 +552,7 @@ class DailyOutreach {
 
     // Notify Telegram start
     await telegramService.sendMessage(`🚀 <b>دەستکرا بە ناردنی نامەی واتسئاپ بۆ ${enabledItems.length} مارکێتی پەسەندکراو</b>\n` +
-      `• کاتی دەستپێکردن: ٩:٠٠ی بەیانی\n` +
-      `• سیستەمی دژە دووبارەبوونەوە: چالاکە 🛡️\n` +
+      `• سیستەمی دژە دووبارەبوونەوە و پچڕان: چالاکە 🛡️\n` +
       `• بۆ پاراستنی ئەکاونت، نێوان هەر نامەیەک ٣٠ چرکەیە.`, {
       chatId: config.GROUP_CHAT_ID,
       threadId: config.TOPICS.SALES
@@ -570,10 +582,51 @@ class DailyOutreach {
       }
       // ----------------------------------------
 
-      const message = this.generateKurdishOutreachMessage(item);
+      // --- RESILIENT WHATSAPP CONNECTION GUARD ---
+      // If WhatsApp disconnects mid-batch, wait up to 5 minutes instead of dropping contacts
+      if (!whatsappBaileys.isConnected) {
+        console.warn(`[DailyOutreach] ⚠️ WhatsApp disconnected before sending to ${item.name} (${cleanPhone}). Pausing batch and waiting for auto-reconnection...`);
+        let reconnected = false;
+        for (let waitAttempt = 0; waitAttempt < 60; waitAttempt++) {
+          await new Promise(r => setTimeout(r, 5000));
+          if (whatsappBaileys.isConnected) {
+            console.log(`[DailyOutreach] 🟢 WhatsApp reconnected successfully! Resuming outreach batch.`);
+            reconnected = true;
+            break;
+          }
+        }
+        if (!reconnected) {
+          console.error(`[DailyOutreach] ❌ WhatsApp did not reconnect after 5 minutes. Pausing batch safely.`);
+          this.state.isRunning = false;
+          this.saveState();
+          return { status: 'whatsapp_disconnected_paused', sentCount };
+        }
+      }
+      // ------------------------------------------
 
-      try {
-        await whatsappBaileys.sendText(item.waJid, message);
+      const message = this.generateKurdishOutreachMessage(item);
+      let sendSuccess = false;
+      let lastErr = null;
+
+      // Retry up to 3 times with progressive backoff
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          if (!whatsappBaileys.isConnected) {
+            await new Promise(r => setTimeout(r, 4000));
+          }
+          await whatsappBaileys.sendText(item.waJid, message);
+          sendSuccess = true;
+          break;
+        } catch (err) {
+          lastErr = err;
+          console.warn(`[DailyOutreach] Attempt ${attempt}/3 failed for ${item.phone}: ${err.message}`);
+          if (attempt < 3) {
+            await new Promise(r => setTimeout(r, 5000));
+          }
+        }
+      }
+
+      if (sendSuccess) {
         sentCount++;
         this.state.totalSent++;
         item.status = 'sent';
@@ -600,9 +653,15 @@ class DailyOutreach {
         this.saveState();
 
         console.log(`[DailyOutreach] ✅ (${sentCount}/${enabledItems.length}) Sent to ${item.name} (${item.phone})`);
-      } catch (err) {
-        console.error(`[DailyOutreach] ❌ Error sending to ${item.phone}:`, err.message);
-        item.status = 'error';
+      } else {
+        console.error(`[DailyOutreach] ❌ Error sending to ${item.phone} after 3 attempts:`, lastErr ? lastErr.message : 'Unknown error');
+        // If connection error, keep as pending so next cycle auto-retries it!
+        if (lastErr && /connect|closed|socket|timeout|timedout/i.test(lastErr.message)) {
+          item.status = 'pending';
+        } else {
+          item.status = 'error';
+          item.error = lastErr ? lastErr.message : 'Send failed';
+        }
         this.saveQueue();
       }
 
@@ -614,12 +673,15 @@ class DailyOutreach {
       }
     }
 
+    // Check remaining pending items
+    const remainingPending = (this.queue.items || []).filter(i => i.enabled && i.status === 'pending').length;
+
     // Advance pointer in leads database past this batch
     const maxLeadIdx = Math.max(...enabledItems.map(it => it.leadIndex || 0), this.state.currentIndex);
     this.state.currentIndex = maxLeadIdx + 1;
     this.state.lastRunDate = new Date().toISOString().split('T')[0];
     this.state.isRunning = false;
-    this.queue.status = 'completed';
+    this.queue.status = remainingPending === 0 ? 'completed' : 'partially_sent';
 
     this.saveState();
     this.saveQueue();

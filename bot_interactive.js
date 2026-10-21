@@ -1166,17 +1166,20 @@ async function backgroundCycle() {
       lastPriceListDate = todayDateStr;
     }
 
-    // 5. Morning WhatsApp Daily Outreach check (From 10:30 AM to 2:00 PM Baghdad time - Resilient Auto-Retry)
-    if (baghdadHour >= 10 && baghdadHour < 14 && lastOutreachDate !== todayDateStr) {
+    // 5. Morning WhatsApp Daily Outreach check (From 10:30 AM to 9:00 PM Baghdad time - Resilient Auto-Retry & Auto-Resume)
+    const pendingItemsCount = (dailyOutreach.queue.items || []).filter(i => i.enabled && i.status === 'pending').length;
+    const shouldRunOutreach = (baghdadHour >= 10 && baghdadHour < 21) && (lastOutreachDate !== todayDateStr || pendingItemsCount > 0);
+
+    if (shouldRunOutreach) {
       if (baghdadHour > 10 || baghdadMinute >= 30) {
         const outreachStatus = dailyOutreach.getStatus();
         if (!outreachStatus.isRunning && outreachStatus.queueStatus !== 'paused') {
-          console.log(`[Background] Checking/Triggering morning WhatsApp outreach (${baghdadHour}:${String(baghdadMinute).padStart(2, '0')} Baghdad)...`);
+          console.log(`[Background] Checking/Triggering morning WhatsApp outreach (${pendingItemsCount} pending, ${baghdadHour}:${String(baghdadMinute).padStart(2, '0')} Baghdad)...`);
           dailyOutreach.executeMorningOutreach().then(res => {
             if (res && (res.status === 'completed' || res.status === 'no_pending_items')) {
               console.log(`[Background] ✅ Daily WhatsApp outreach completed successfully for ${todayDateStr}!`);
               lastOutreachDate = todayDateStr;
-            } else if (res && res.status === 'whatsapp_not_connected') {
+            } else if (res && (res.status === 'whatsapp_not_connected' || res.status === 'whatsapp_disconnected_paused')) {
               console.warn(`[Background] ⚠️ WhatsApp not connected. Outreach will automatically retry in next 5-minute cycle.`);
             }
           }).catch(err => {

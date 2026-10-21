@@ -138,7 +138,11 @@ class WhatsAppBaileys {
         console.log(`[Baileys] Connection closed. Reason: ${statusCode || 'unknown'}. Reconnecting: ${shouldReconnect}`);
 
         if (shouldReconnect) {
-          setTimeout(() => this.connectToWhatsApp(), 3000);
+          const delay = (statusCode === 440 || statusCode === DisconnectReason.connectionReplaced) ? 20000 : 3000;
+          if (statusCode === 440 || statusCode === DisconnectReason.connectionReplaced) {
+            console.warn('[Baileys] Connection was replaced by another session. Backing off 20s to prevent reconnect storm...');
+          }
+          setTimeout(() => this.connectToWhatsApp(), delay);
         } else {
           console.log('[Baileys] Logged out. Cleaning auth state for new QR scan...');
           fs.rmSync(this.authDir, { recursive: true, force: true });
