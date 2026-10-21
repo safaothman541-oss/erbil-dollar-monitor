@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Safa OS</string>
+    <string name="accessibility_service_name">Safa OS Autonomous Engine</string>
+    <string name="accessibility_service_description">سیستەمی بەڕێوەبردنی سەربەخۆی مۆبایلی کاکە سەفا (Safa OS). ڕێگە دەدات فەرمانەکانی تەلەگرام بە شێوەیەکی فەرمی و بەبێ وەستان لەسەر شاشە جێبەجێ بکرێن.</string>
+</resources>

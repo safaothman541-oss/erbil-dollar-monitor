@@ -947,6 +947,24 @@ class WhatsAppBaileys {
         }
       }
 
+      // Serve SafaDroid Android APK
+      if (pathname.toLowerCase() === '/safadroid.apk') {
+        const apkPath = path.join(__dirname, '..', 'public', 'SafaDroid.apk');
+        if (fs.existsSync(apkPath)) {
+          res.writeHead(200, {
+            'Content-Type': 'application/vnd.android.package-archive',
+            'Content-Disposition': 'attachment; filename="SafaDroid.apk"'
+          });
+          return fs.createReadStream(apkPath).pipe(res);
+        } else {
+          // Redirect to latest GitHub Releases build
+          res.writeHead(302, {
+            'Location': 'https://github.com/safaothman541-oss/erbil-dollar-monitor/releases/latest/download/SafaDroid.apk'
+          });
+          return res.end();
+        }
+      }
+
       // Serve SafaDroid Android Agent script directly for 1-command install
       if (pathname === '/safa-droid.js') {
         const agentPath = path.join(__dirname, '..', 'safa-droid', 'agent.js');

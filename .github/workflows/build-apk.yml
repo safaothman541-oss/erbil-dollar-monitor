@@ -1,0 +1,75 @@
+name: Build & Release SafaDroid APK
+
+on:
+  push:
+    paths:
+      - 'android-agent/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build SafaDroid Accessibility APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Generate Gradle Wrapper
+        run: |
+          cd android-agent
+          gradle wrapper
+          chmod +x gradlew
+
+      - name: Build Debug APK with Gradle
+        run: |
+          cd android-agent
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Prepare APK File
+        run: |
+          mkdir -p release_apk
+          cp android-agent/app/build/outputs/apk/debug/app-debug.apk release_apk/SafaDroid.apk
+          echo "SafaDroid APK successfully prepared."
+          ls -lh release_apk/SafaDroid.apk
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SafaDroid.apk
+          path: release_apk/SafaDroid.apk
+          retention-days: 30
+
+      - name: Publish GitHub Release (Latest)
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: latest
+          name: "SafaDroid OS Accessibility Engine (Latest)"
+          body: |
+            ### 👑 Safa OS - Autonomous Android Accessibility Engine (SafaDroid)
+            Built automatically via GitHub Actions CI/CD from OpenRing Architecture.
+            
+            - **No Termux required**
+            - **No Shizuku required**
+            - **No Root required**
+            - Runs 24/7 as an official Android Accessibility Service
+          files: release_apk/SafaDroid.apk
+          draft: false
+          prerelease: false

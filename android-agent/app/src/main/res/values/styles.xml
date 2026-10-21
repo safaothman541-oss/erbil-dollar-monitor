@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.SafaDroid" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#FF6B00</item>
+        <item name="colorPrimaryVariant">#E05D00</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="android:statusBarColor">#121212</item>
+    </style>
+</resources>
