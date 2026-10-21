@@ -7,6 +7,15 @@
 # Ensure full access to Android system binaries (/system/bin) alongside Termux
 export PATH="/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/bin/applets:/system/bin:/system/xbin:$PATH"
 
+# Run command with Shizuku (ADB Shell UID 2000) if rish is available, otherwise system shell
+run_adb_cmd() {
+  local CMD="$1"
+  if command -v rish >/dev/null 2>&1; then
+    rish -c "$CMD" 2>/dev/null && return 0
+  fi
+  eval "$CMD" 2>/dev/null
+}
+
 SERVER_URL="https://safaothman.alwaysdata.net"
 TOKEN="safa_droid_secret_2026"
 POLL_INTERVAL=2
@@ -53,19 +62,19 @@ launch_app() {
   # 1. Resolve exact launcher activity via Android Package Manager
   local ACT=$(/system/bin/cmd package resolve-activity --brief "$PKG" 2>/dev/null | tail -n1)
   if [ -n "$ACT" ] && echo "$ACT" | grep -q "/"; then
-    /system/bin/am start -n "$ACT" >/dev/null 2>&1 && return 0
+    run_adb_cmd "am start -n $ACT" && return 0
   fi
 
   # 2. Launch via monkey (explicit system path)
   if [ -x /system/bin/monkey ]; then
-    /system/bin/monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 && return 0
+    run_adb_cmd "monkey -p $PKG -c android.intent.category.LAUNCHER 1" && return 0
   fi
 
   # 3. Launch via Intent Action
-  /system/bin/am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$PKG" >/dev/null 2>&1 && return 0
+  run_adb_cmd "am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p $PKG" && return 0
 
   # 4. Fallback: am start -n pkg/.MainActivity
-  /system/bin/am start -n "$PKG" >/dev/null 2>&1 && return 0
+  run_adb_cmd "am start -n $PKG" && return 0
 
   return 1
 }
@@ -137,9 +146,9 @@ while true; do
 
       CAMERA)
         echo "📸 کردنەوەی کامێرا لەسەر شاشە..."
-        /system/bin/am start -a android.media.action.STILL_IMAGE_CAMERA >/dev/null 2>&1
+        run_adb_cmd "am start -a android.media.action.STILL_IMAGE_CAMERA"
         sleep 2
-        /system/bin/input keyevent 27 2>/dev/null || /system/bin/input keyevent 24 2>/dev/null || true
+        run_adb_cmd "input keyevent 27" || run_adb_cmd "input keyevent 24" || true
         SUCCESS=true
         FEEDBACK="ئەپی کامێرا لەسەر شاشە کرایەوە و دوگمەی وێنەگرتن داگیرا 📸"
         ;;
@@ -148,7 +157,7 @@ while true; do
         if [ -n "$MESSAGE" ]; then
           termux-clipboard-set "$MESSAGE" 2>/dev/null || true
           ESCAPED_TEXT=$(echo "$MESSAGE" | sed 's/ /%s/g')
-          /system/bin/input text "$ESCAPED_TEXT" 2>/dev/null || /system/bin/input keyevent 279 2>/dev/null || true
+          run_adb_cmd "input text $ESCAPED_TEXT" || run_adb_cmd "input keyevent 279" || true
           SUCCESS=true
           FEEDBACK="دەقی «$MESSAGE» لەسەر شاشەی مۆبایلەکەت نووسرا ⌨️"
         else

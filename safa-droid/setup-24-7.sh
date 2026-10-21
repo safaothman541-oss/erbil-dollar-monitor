@@ -15,6 +15,14 @@ echo "📥 دابەزاندنی دوایین بریکاری فەرمی..."
 curl -s https://safaothman.alwaysdata.net/safa-droid.sh -o $HOME/agent.sh
 chmod +x $HOME/agent.sh
 
+# 2.1 Auto-link Shizuku rish if Shizuku files exist
+if [ -f "/sdcard/Android/data/moe.shizuku.privileged.api/files/rish" ]; then
+  echo "⚡ دۆزینەوەی Shizuku (ADB Shell)..."
+  mkdir -p $PREFIX/bin
+  cp /sdcard/Android/data/moe.shizuku.privileged.api/files/rish $PREFIX/bin/rish 2>/dev/null || true
+  chmod +x $PREFIX/bin/rish 2>/dev/null || true
+fi
+
 # 3. Create auto-boot script directory (Termux:Boot standard)
 mkdir -p $HOME/.termux/boot
 
