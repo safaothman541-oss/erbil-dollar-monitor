@@ -6,6 +6,7 @@
 
 # Ensure full access to Android system binaries (/system/bin) alongside Termux
 export PATH="/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/bin/applets:/system/bin:/system/xbin:$PATH"
+export RISH_APPLICATION_ID="com.termux"
 
 # Run command with Shizuku (ADB Shell UID 2000) if rish is available, otherwise system shell
 run_adb_cmd() {
@@ -15,6 +16,11 @@ run_adb_cmd() {
   fi
   eval "$CMD" 2>/dev/null
 }
+
+# Auto-grant Display Over Other Apps via Shizuku ADB if available
+if command -v rish >/dev/null 2>&1; then
+  rish -c 'appops set com.termux SYSTEM_ALERT_WINDOW allow' 2>/dev/null || true
+fi
 
 SERVER_URL="https://safaothman.alwaysdata.net"
 TOKEN="safa_droid_secret_2026"
@@ -82,11 +88,11 @@ launch_app() {
 # Helper: Verify if an app gained focus on the screen
 verify_top_app() {
   local TARGET_PKG="$1"
-  local CURRENT_FOCUS=$(/system/bin/dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' || true)
+  local CURRENT_FOCUS=$(run_adb_cmd "dumpsys window" 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' || true)
   if echo "$CURRENT_FOCUS" | grep -qi "$TARGET_PKG"; then
     return 0
   fi
-  local TOP_ACT=$(/system/bin/dumpsys activity activities 2>/dev/null | grep -E 'topResumedActivity|mResumedActivity|mFocusedWindow' || true)
+  local TOP_ACT=$(run_adb_cmd "dumpsys activity activities" 2>/dev/null | grep -E 'topResumedActivity|mResumedActivity|mFocusedWindow' || true)
   if echo "$TOP_ACT" | grep -qi "$TARGET_PKG"; then
     return 0
   fi
