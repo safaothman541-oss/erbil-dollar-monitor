@@ -19,6 +19,8 @@ class ConversationManager {
     try {
       if (fs.existsSync(HISTORY_FILE)) {
         this.history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+      } else {
+        this.history = [];
       }
     } catch (e) {
       this.history = [];
@@ -40,30 +42,111 @@ class ConversationManager {
     this.saveHistory();
   }
 
+  // Fast-Path Instant Device Command Matcher (Zero latency, Zero questions)
+  checkDirectDeviceCommand(text) {
+    const clean = text.trim();
+
+    // 1. CALL: پەیوەندی بکە / تەلەفۆن بکە / تێل بکە
+    const callMatch = clean.match(/(?:تەلەفۆن|پەیوەندی|تێل|call)\s*(?:بکە|بگرە|لێبدە)?\s*(?:بە|بۆ)?\s*(07\d{8,9}|\+?964\d{9,10})/i);
+    if (callMatch) {
+      const target = callMatch[1];
+      const cmd = androidBridge.queueCommand('CALL', { target, number: target });
+      return {
+        reply: `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ پەیوەندی بە ژمارەی <b>${target}</b> دەبەسترێت لەسەر مۆبایلەکەت 📲`,
+        actions: [{ type: 'DEVICE', item: cmd }]
+      };
+    }
+
+    // 2. SPEAK: لە بڵندگۆ بڵێ / بە دەنگ بڵێ / قسە بکە
+    const speakMatch = clean.match(/(?:لە بڵندگۆ|بە دەنگ|بڵندگۆ|speak|دەنگ)\s*(?:بڵێ|دەڵێ|قسە بکە)?\s*[:«"“]?\s*(.*)/i);
+    if (speakMatch && speakMatch[1] && speakMatch[1].length > 1) {
+      let msg = speakMatch[1].replace(/[»"”]/g, '').trim();
+      if (msg) {
+        const cmd = androidBridge.queueCommand('SPEAK', { text: msg, message: msg });
+        return {
+          reply: `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ لە بڵندگۆی مۆبایلەکەتەوە دەخوێندرێتەوە: <i>«${msg}»</i> 🔊`,
+          actions: [{ type: 'DEVICE', item: cmd }]
+        };
+      }
+    }
+
+    // 3. SMS: نامە بنێرە / کورتەنامە / مەسج
+    const smsMatch = clean.match(/(?:نامە|کورتەنامە|مەسج|sms)\s*(?:بنێرە|بکە)?\s*(?:بە|بۆ)?\s*(07\d{8,9}|\+?964\d{9,10})\s*(?:و\s*بڵێ|دەقی|:)??\s*(.*)/i);
+    if (smsMatch) {
+      const target = smsMatch[1];
+      const body = (smsMatch[2] || '').trim();
+      const cmd = androidBridge.queueCommand('SMS', { target, number: target, message: body });
+      return {
+        reply: `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ نامەی کورت (SMS) دەنێردرێت بۆ <b>${target}</b> ✉️\n${body ? `• دەق: <i>${body}</i>` : ''}`,
+        actions: [{ type: 'DEVICE', item: cmd }]
+      };
+    }
+
+    // 4. GPS / Location: شوێنەکەم / لۆکەیشن
+    if (/(?:شوێنەکەم|شوێنی ئێستا|لۆکەیشن|جی پی ئێس|gps|location)/i.test(clean)) {
+      const cmd = androidBridge.queueCommand('GPS', {});
+      return {
+        reply: `فەرمانت بەسەر چاو کاکە سەفا، خەریکی دەرهێنانی نوێترین شوێنی GPS ـی مۆبایلەکەتە 📍`,
+        actions: [{ type: 'DEVICE', item: cmd }]
+      };
+    }
+
+    // 5. TORCH / Flash: فلاش
+    if (/(?:فلاش|لایت|torch|flashlight)/i.test(clean)) {
+      const isOff = /(?:بکوژێنەوە|کوژانەوە|off)/i.test(clean);
+      const state = isOff ? 'off' : 'on';
+      const cmd = androidBridge.queueCommand('TORCH', { state });
+      return {
+        reply: `فەرمانت بەسەر چاو کاکە سەفا، فلاشی مۆبایلەکەت ${state === 'on' ? 'داگیرسا 💡' : 'کوژایەوە 🌑'}`,
+        actions: [{ type: 'DEVICE', item: cmd }]
+      };
+    }
+
+    // 6. VIBRATE: لەرینەوە / ڤایبرەیشن
+    if (/(?:ڤایبرەیشن|لەرینەوە|بلەرێنەوە|vibrate)/i.test(clean)) {
+      const cmd = androidBridge.queueCommand('VIBRATE', { duration: 1500 });
+      return {
+        reply: `فەرمانت بەسەر چاو کاکە سەفا، مۆبایلەکەت لەرینەوەی (Vibrate) کرد 📳`,
+        actions: [{ type: 'DEVICE', item: cmd }]
+      };
+    }
+
+    return null;
+  }
+
   async chat(userMessage) {
-    // Append user turn
+    // 1. Check direct instant fast-path (Zero questions, Zero latency)
+    const fastPath = this.checkDirectDeviceCommand(userMessage);
+    if (fastPath) {
+      this.history.push({ role: 'user', content: userMessage });
+      this.history.push({ role: 'assistant', content: fastPath.reply });
+      this.saveHistory();
+      return fastPath;
+    }
+
+    // 2. Append user turn
     this.history.push({ role: 'user', content: userMessage });
     if (this.history.length > MAX_HISTORY_TURNS) {
       this.history = this.history.slice(-MAX_HISTORY_TURNS);
     }
 
-    const systemPrompt = `تۆ سەرۆکی دیوان و هاوبەشی ژیریی دەستکردی باڵای کاکە سەفایت (Safa OS Chief of Staff).
-سەفا ئەندازیاری دەرچووی بەشی ICT لە زانکۆی پۆلیتەکنیکی هەولێرە، خاوەن بیزنس و پسپۆڕی ئۆتۆمەیشنە.
+    const systemPrompt = `تۆ سەرۆکی دیوان و جێبەجێکاری باڵای کاکە سەفایت (Safa OS Executive Doer).
+سەفا ئەندازیاری دەرچووی بەشی ICT لە زانکۆی پۆلیتەکنیکی هەولێرە و خاوەن بیزنسە. کاتی زۆر کەمە و ڕقی لە فەلسەفە و پرسیارکردنی بێسوودە!
 
-ڕێنماییە یەکلاکەرەوەکان بۆ کەسایەتی و هەڵسوکەوتت:
-١. بە هیچ جۆرێک وەکو بۆتێکی سارد و تەنها تۆمارکەری تاسک مامەڵە مەکە! هەڵەیە ئەگەر سەفا شتێکی وت یەکسەر بیکەیتە تاسک. سەفا پێویستی بە هاوبەشێکی هزر، ڕاوێژکاری ستراتیجی و دەستێکی ڕاستی هۆشمەندە کە قسەی لەگەڵدا بکات.
-٢. هەمیشە پێش هەموو شتێک بە وردی گوێ بگرە و پرسیار بکە کە ئایا چی دەوێت. ئەگەر بابەتێک ناڕوون بوو، پرسیاری ڕوونکردنەوەی لێ بکە و بژاردەی بخەرە بەردەم: "کاک سەفا گیان، پێت باشە کام لەم ڕێگایانە بگرینە بەر؟".
-٣. تۆ دەستی ڕاستی سەفایت بۆ بەڕێوەبردنی تەواوی ژیانی لەسەر مۆبایل و کلاود (کالێندەر، ئیمەیڵ، خەرجی، بیزنس و سۆشیال میدیا).
-٤. تەنها کاتێک کردار (Action) جێبەجێ بکە کە سەفا ڕاستەوخۆ داوای کردبێت (وەک تۆمارکردنی خەرجی دیاریکراو، یان داواکردنی ڕاستەوخۆی زیادکردنی مەوعید لە کالێندەر). ئەگەر تەنها بیرۆکە یان قسەکردن بوو، لەگەڵیدا بکەوە و تاوتوێی بکە.
-٥. ئەگەر کرداری فەرمی داواکرابوو، لە کۆتایی پەیامەکەتدا ئەم تاگانە بەکاربهێنە تا خۆکارانە لە سیستەمەکە جێبەجێ بکرێن:
+یاسا و ڕێساکانی جێبەجێکردن (زۆر گرنگ):
+١. هەر فەرمان یان داواکارییەکت پێدەدرێت، یەکسەر، دەستبەجێ و بێ هیچ پرسیارێکی زیادە جێبەجێی بکە!
+   - بە هیچ جۆرێک مەکەوەرە پرسیارکردن و سەرقاڵکردنی سەفا. کارەکە بکە و کۆتایی پێ بهێنە.
+   - ئەگەر باسی خەرجی، ئەرک، بیرۆکە، پۆست، کالێندەر، یان مۆبایل کرا، یەکسەر تاگی کردار دابنێ تا سیستمەکە جێبەجێی بکات.
+٢. تەنها و تەنها کاتێک بۆچوون یان پرسیار بکە کە سەفا خۆی ڕاستەوخۆ داوای ڕاوێژی لێ کردبیت (وەک "ڕات چییە؟"، "پێشنیارت چییە؟"). لە غەیری ئەوەدا هەرگیز پرسیار مەکە!
+٣. تاگە فەرمییەکان بۆ جێبەجێکردن لە کۆتایی وەڵامەکەتدا:
+   - بۆ فەرمانی مۆبایل: [ACTION:DEVICE:{"action":"CALL|SMS|GPS|PHOTO|VIBRATE|TORCH|SPEAK","target":"ژمارە یان دەق","message":"دەق"}]
    - بۆ خەرجی: [ACTION:EXPENSE:{"amount":25000,"currency":"IQD","category":"خۆراک|سوتەمەنی|تەکنەلۆژیا|کار|کەسی","note":"تێبینی"}]
-   - بۆ ئەرکی فەرمی (تەنها کاتێک داوای کرد): [ACTION:TASK:{"task":"ناوی ئەرک","dueDate":"کات","priority":"بەپەلە|ئاسایی"}]
-   - بۆ بیرۆکەی نوێ: [ACTION:IDEA:{"title":"سەردێڕ","analysis":"شیکاری","tags":["تاگ1"]}]
-   - بۆ کالێندەر و مەوعید: [ACTION:CALENDAR:{"title":"ناونیشانی مەوعید","time":"2026-10-22T14:00:00","duration":60,"description":"تێبینی"}]
-   - بۆ ڕەشنووسی ئیمەیڵ: [ACTION:EMAIL:{"to":"ناونیشان","subject":"سەردێڕ","body":"دەقی نامە"}]
-   - بۆ فەرمانی ڕاستەوخۆ بەسەر مۆبایلی ئەندرۆید: [ACTION:DEVICE:{"action":"CALL|SMS|GPS|PHOTO|VIBRATE|TORCH|SPEAK|CLIPBOARD","target":"ژمارە یان دەق","message":"دەق"}]
+   - بۆ ئەرک: [ACTION:TASK:{"task":"ناوی ئەرک","dueDate":"کات","priority":"بەپەلە|ئاسایی"}]
+   - بۆ بیرۆکە: [ACTION:IDEA:{"title":"سەردێڕ","analysis":"شیکاری","tags":["تاگ1"]}]
+   - بۆ کالێندەر: [ACTION:CALENDAR:{"title":"مەوعید","time":"2026-10-22T14:00:00","duration":60,"description":"تێبینی"}]
+   - بۆ ئیمەیڵ: [ACTION:EMAIL:{"to":"ناونیشان","subject":"سەردێڕ","body":"دەقی نامە"}]
 
-شێوازی گفتوگۆ: زۆر ڕێزدار، براوانە، ئەندازیارانە، هاندەر، بە زمانی کوردیی سۆرانییەکی زۆر جوان و بێ کەمین.`;
+شێوازی قسەکردن: زۆر کورت، بڕیاردەر، بەڕێز، ئەندازیارانە بە کوردیی سۆرانی پوخت. ئەگەر کارەکەت کرد تەنها بڵێ فەرمانت جێبەجێ کرا!`;
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -71,7 +154,7 @@ class ConversationManager {
     ];
 
     try {
-      const reply = await groqService.fastChat(messages, { temperature: 0.6, max_tokens: 1500 });
+      const reply = await groqService.fastChat(messages, { temperature: 0.4, max_tokens: 1200 });
 
       // Append assistant turn
       this.history.push({ role: 'assistant', content: reply });
@@ -90,7 +173,7 @@ class ConversationManager {
     } catch (err) {
       console.error('[ConversationManager] Error:', err.message);
       return {
-        reply: `سڵاو کاک سەفا گیان، کێشەیەکی کاتی لە هێڵی پەیوەندیی AI دروست بوو (${err.message}). تکایە پەیامەکەت دووبارە بنێرەوە تا قسە بکەین.`,
+        reply: `کێشەیەک ڕوویدا لە پەیوەندی (${err.message}). تکایە دووبارەی بکەرەوە.`,
         actions: []
       };
     }
