@@ -74,6 +74,60 @@ class GroqService {
       throw err;
     }
   }
+
+  // Vision Perception: Analyze Android Screen Image
+  async analyzeScreenImage(imageBuffer) {
+    if (!this.apiKey) return null;
+    try {
+      const base64Image = imageBuffer.toString('base64');
+      const dataUrl = `data:image/png;base64,${base64Image}`;
+
+      const messages = [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'تۆ سیستەمی بینینی زیرەکی دیوانی کاکە سەفایت (Safa OS Vision). ئەمە وێنەی ڕاستەوخۆی شاشەی مۆبایلی ئەندرۆیدی کاکە سەفایە. بە زمانی کوردی سۆرانی، زۆر پوخت و پرۆفیشناڵ پێناسەی بکە: چ ئەپێک کراوەیە؟ چ ناوەڕۆک، نامە، دوگمە، یان پەنجەرەیەک دیارە؟ بەبێ زیادەبێژی و بە ڕوونی باسی بکە.'
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: dataUrl
+              }
+            }
+          ]
+        }
+      ];
+
+      const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'llama-3.2-11b-vision-preview',
+          messages,
+          temperature: 0.2,
+          max_tokens: 800
+        })
+      });
+
+      if (!res.ok) {
+        console.warn('[Groq Vision] Error status:', res.status);
+        return null;
+      }
+
+      const data = await res.json();
+      return data.choices && data.choices[0] && data.choices[0].message
+        ? data.choices[0].message.content
+        : null;
+    } catch (e) {
+      console.warn('[Groq Vision] Exception:', e.message);
+      return null;
+    }
+  }
 }
 
 module.exports = new GroqService();

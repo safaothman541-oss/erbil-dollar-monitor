@@ -46,6 +46,29 @@ class ConversationManager {
   checkDirectDeviceCommand(text) {
     const clean = text.trim();
 
+    // 0. SCREENSHOT & VISION: دەتوانی شاشەکە ببینی؟ / وێنەی شاشە / شاشەم ببینە
+    if (/(?:دەتوانیت|دەتوانی|ئەتوانی)?\s*(?:شاشەکەم|شاشەکە|شاشە|سکرین|screenshot)\s*(?:ببینیت|ببینی|سەیر بکە|بگرە|پیشان بدە|دیارە)?/i.test(clean) ||
+        /(?:وێنەی شاشە|ڕەسمی شاشە|سەیری شاشەکەم بکە|شاشەکەم پیشان بدە)/i.test(clean)) {
+      const cmd = androidBridge.queueCommand('SCREENSHOT', {});
+      return {
+        reply: `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ وێنەی ڕاستەوخۆی شاشەی مۆبایلەکەت دەگیرێت، بۆت دەنێردرێت و لە ڕێگەی زیرەکی دەستکردەوە شرۆڤە دەکرێت 👁️📱`,
+        actions: [{ type: 'DEVICE', item: cmd }]
+      };
+    }
+
+    // 0.1 WHATSAPP MULTI-STEP: سەرەتا بەرنامەی واتسئاپ بکەرەوە، دواتر [ناو] بدۆزەوە، دواتر [نامە] بۆ بنێرە
+    const waMultiMatch = clean.match(/(?:واتسئاپ|واتساب|whatsapp).*(?:دواتر|پاشان)?\s*([^\s،,]+)\s*(?:بدۆزەوە|ببینەوە).*(?:دواتر|پاشان)?\s*(?:نامەی|سڵاوی|دەقی)?\s*[:«"“]?\s*([^«"”]+?)\s*(?:بۆ بنێرە|بنێرە|بکە)/i) ||
+                         clean.match(/(?:لە واتسئاپ|بە واتسئاپ|واتسئاپ)\s*(?:نامە|سڵاو|مەسج)\s*(?:بنێرە|بکە)?\s*(?:بۆ|بە)\s*([^\s،,]+)\s*(?:و\s*بڵێ|دەقی|:)??\s*(.*)/i);
+    if (waMultiMatch) {
+      const contact = waMultiMatch[1].replace(/[»"”]/g, '').trim();
+      const textToSend = (waMultiMatch[2] || 'سڵاو').replace(/[»"”]/g, '').trim();
+      const cmd = androidBridge.queueCommand('WHATSAPP_SEND', { target: contact, message: textToSend });
+      return {
+        reply: `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ ئەپی واتسئاپ لەسەر شاشە دەکرێتەوە، ناو یان ژمارەی <b>${contact}</b> دەدۆزرێتەوە و نامەی <i>«${textToSend}»</i> ـی بۆ دەنێردرێت 💬📱`,
+        actions: [{ type: 'DEVICE', item: cmd }]
+      };
+    }
+
     // 1. CALL: پەیوەندی بکە / تەلەفۆن بکە / تێل بکە
     const callMatch = clean.match(/(?:تەلەفۆن|پەیوەندی|تێل|call)\s*(?:بکە|بگرە|لێبدە)?\s*(?:بە|بۆ)?\s*(07\d{8,9}|\+?964\d{9,10})/i);
     if (callMatch) {

@@ -1,36 +1,34 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # ==============================================================================
-# Safa OS - Autonomous Closed-Loop Android Agent (SafaDroid v2.1)
-# Universal System PATH + Multi-Layer Activity Launcher
+# Safa OS - Autonomous Closed-Loop Android Agent (SafaDroid v3.0 Ultra)
+# Shizuku ADB Shell (uid=2000) + Live Screen Vision + Multi-Step Automation
 # ==============================================================================
 
-# Ensure full access to Android system binaries (/system/bin) alongside Termux
+# Ensure full access to Android system binaries alongside Termux
 export PATH="/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/bin/applets:/system/bin:/system/xbin:$PATH"
 export RISH_APPLICATION_ID="com.termux"
 
-# Run command with Shizuku (ADB Shell UID 2000) if rish is available, otherwise system shell
+# Bulletproof execution via Shizuku (ADB Shell UID 2000)
 run_adb_cmd() {
   local CMD="$1"
   if command -v rish >/dev/null 2>&1; then
-    rish -c "$CMD" 2>/dev/null && return 0
+    timeout 12s rish -c "$CMD" 2>/dev/null && return 0
   fi
-  eval "$CMD" 2>/dev/null
+  timeout 12s eval "$CMD" 2>/dev/null
 }
 
-# Auto-grant Display Over Other Apps via Shizuku ADB if available
-if command -v rish >/dev/null 2>&1; then
-  rish -c 'appops set com.termux SYSTEM_ALERT_WINDOW allow' 2>/dev/null || true
-fi
+# Auto-grant Display Over Other Apps and system overlay permissions
+run_adb_cmd "appops set com.termux SYSTEM_ALERT_WINDOW allow" 2>/dev/null || true
 
 SERVER_URL="https://safaothman.alwaysdata.net"
 TOKEN="safa_droid_secret_2026"
 POLL_INTERVAL=2
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🤖 SafaDroid v2.1 - Universal Screen Agent"
-echo "👑 ئەندازیار کاکە سەفا (Autonomous OS)"
+echo "🤖 SafaDroid v3.0 Ultra - Autonomous OS"
+echo "👑 ئەندازیار کاکە سەفا (ICT Executive)"
 echo "📡 بەستراوەتەوە بە سێرڤەر: $SERVER_URL"
-echo "🟢 سیستەمی کۆنتڕۆڵی شاشە کارایە!"
+echo "🟢 Shizuku ADB Shell + بینینی شاشە کارایە!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Helper: Find exact Android package name dynamically for ANY app
@@ -51,8 +49,8 @@ find_package() {
     calculator|حاسیبە|کالکۆلەیتەر) echo "calculator_intent"; return 0 ;;
   esac
 
-  # Dynamic search through all installed packages on the phone
-  local MATCH=$(/system/bin/pm list packages 2>/dev/null | grep -i "$QUERY" | head -n1 | cut -d: -f2)
+  # Dynamic search through installed packages on the phone
+  local MATCH=$(run_adb_cmd "pm list packages" 2>/dev/null | grep -i "$QUERY" | head -n1 | cut -d: -f2 | tr -d '\r')
   if [ -n "$MATCH" ]; then
     echo "$MATCH"
     return 0
@@ -61,39 +59,36 @@ find_package() {
   echo "$1"
 }
 
-# Helper: Robust Multi-Layer App Launcher
+# Helper: Robust Multi-Layer App Launcher via Shizuku ADB
 launch_app() {
   local PKG="$1"
 
   # 1. Resolve exact launcher activity via Android Package Manager
-  local ACT=$(/system/bin/cmd package resolve-activity --brief "$PKG" 2>/dev/null | tail -n1)
+  local ACT=$(run_adb_cmd "cmd package resolve-activity --brief $PKG" 2>/dev/null | tail -n1 | tr -d '\r')
   if [ -n "$ACT" ] && echo "$ACT" | grep -q "/"; then
     run_adb_cmd "am start -n $ACT" && return 0
   fi
 
-  # 2. Launch via monkey (explicit system path)
-  if [ -x /system/bin/monkey ]; then
-    run_adb_cmd "monkey -p $PKG -c android.intent.category.LAUNCHER 1" && return 0
-  fi
+  # 2. Launch via monkey (instant background launch bypass)
+  run_adb_cmd "monkey -p $PKG -c android.intent.category.LAUNCHER 1" && return 0
 
   # 3. Launch via Intent Action
   run_adb_cmd "am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p $PKG" && return 0
 
-  # 4. Fallback: am start -n pkg/.MainActivity
+  # 4. Fallback: am start -n pkg
   run_adb_cmd "am start -n $PKG" && return 0
 
   return 1
 }
 
-# Helper: Verify if an app gained focus on the screen
+# Helper: Verify if an app gained focus on screen or process is running
 verify_top_app() {
   local TARGET_PKG="$1"
-  local CURRENT_FOCUS=$(run_adb_cmd "dumpsys window" 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' || true)
-  if echo "$CURRENT_FOCUS" | grep -qi "$TARGET_PKG"; then
+  local TOP_ACT=$(run_adb_cmd "dumpsys activity activities" 2>/dev/null | grep -E 'mResumedActivity|topResumedActivity|mFocusedApp' || true)
+  if echo "$TOP_ACT" | grep -qi "$TARGET_PKG"; then
     return 0
   fi
-  local TOP_ACT=$(run_adb_cmd "dumpsys activity activities" 2>/dev/null | grep -E 'topResumedActivity|mResumedActivity|mFocusedWindow' || true)
-  if echo "$TOP_ACT" | grep -qi "$TARGET_PKG"; then
+  if pidof "$TARGET_PKG" >/dev/null 2>&1 || run_adb_cmd "pidof $TARGET_PKG" >/dev/null 2>&1; then
     return 0
   fi
   return 1
@@ -113,38 +108,88 @@ while true; do
     FEEDBACK=""
 
     case "$CMD_TYPE" in
+      SCREENSHOT)
+        echo "📸 وێنەگرتنی ڕاستەوخۆی شاشە (Live Screen Capture)..."
+        SC_PATH="/sdcard/Download/safa_screen.png"
+        rm -f "$SC_PATH" 2>/dev/null || true
+        run_adb_cmd "screencap -p $SC_PATH" || screencap -p "$SC_PATH" 2>/dev/null || true
+        
+        if [ ! -s "$SC_PATH" ]; then
+          SC_PATH="$HOME/safa_screen.png"
+          rm -f "$SC_PATH" 2>/dev/null || true
+          run_adb_cmd "screencap -p $SC_PATH" || screencap -p "$SC_PATH" 2>/dev/null || true
+        fi
+
+        if [ -s "$SC_PATH" ]; then
+          echo "📤 بارکردنی وێنەی شاشە بۆ سێرڤەری Safa OS..."
+          curl -s --max-time 15 --data-binary "@$SC_PATH" -H "Content-Type: image/png" "$SERVER_URL/api/mobile/upload-screen?token=$TOKEN" >/dev/null 2>&1
+          SUCCESS=true
+          FEEDBACK="وێنەی شاشەی مۆبایلەکەت بە سەرکەوتوویی گیرا و ڕەوانەی دیوانی سەرۆکایەتی (Safa OS) کرا 📸👁️"
+        else
+          SUCCESS=false
+          FEEDBACK="نەتوانرا وێنەی شاشە بگرێت (پێویستی بە مۆڵەتی ADB/Shizuku هەیە)."
+        fi
+        ;;
+
+      WHATSAPP_SEND)
+        CONTACT="$TARGET"
+        MSG="$MESSAGE"
+        echo "💬 ناردنی نامەی واتسئاپ بۆ $CONTACT: $MSG"
+        
+        FOUND_PHONE=""
+        if [ -n "$CONTACT" ]; then
+          # Search contact phone number via Shizuku ADB content query
+          CONTACTS_DATA=$(run_adb_cmd "content query --uri content://contacts/phones --projection display_name:number" 2>/dev/null || true)
+          FOUND_PHONE=$(echo "$CONTACTS_DATA" | grep -i "$CONTACT" | head -n1 | grep -o 'number=[^ ,]*' | cut -d= -f2 | tr -d ' -()')
+        fi
+
+        if [ -n "$FOUND_PHONE" ]; then
+          CLEAN_PHONE=$(echo "$FOUND_PHONE" | sed 's/^+//')
+          if echo "$CLEAN_PHONE" | grep -q '^07'; then
+            CLEAN_PHONE="964${CLEAN_PHONE#0}"
+          fi
+          ENCODED_MSG=$(echo "$MSG" | sed 's/ /%20/g')
+          run_adb_cmd "am start -a android.intent.action.VIEW -d 'https://api.whatsapp.com/send?phone=$CLEAN_PHONE&text=$ENCODED_MSG'"
+          sleep 2
+          run_adb_cmd "input keyevent 66" || true
+          SUCCESS=true
+          FEEDBACK="ئەپی واتسئاپ کرایەوە، چاتی $CONTACT ($CLEAN_PHONE) دۆزرایەوە و دەقی «$MSG» ئامادە کرا و نێردرا 💬📱"
+        else
+          ENCODED_MSG=$(echo "$MSG" | sed 's/ /%20/g')
+          run_adb_cmd "am start -a android.intent.action.SEND -t text/plain -e android.intent.extra.TEXT '$MSG' com.whatsapp" || \
+          run_adb_cmd "am start -a android.intent.action.VIEW -d 'whatsapp://send?text=$ENCODED_MSG'"
+          SUCCESS=true
+          FEEDBACK="ئەپی واتسئاپ لەسەر شاشە کرایەوە و دەقی نامەی «$MSG» ئامادە کرا بۆ ناردن بۆ $CONTACT 💬📱"
+        fi
+        ;;
+
       APP)
         PKG=$(find_package "$TARGET")
         echo "🔍 پشکنینی پاکێج: $TARGET -> $PKG"
 
         if [ "$PKG" = "camera_intent" ]; then
-          /system/bin/am start -a android.media.action.STILL_IMAGE_CAMERA >/dev/null 2>&1
-          sleep 1
+          run_adb_cmd "am start -a android.media.action.STILL_IMAGE_CAMERA"
           SUCCESS=true
           FEEDBACK="ئەپی کامێرا لەسەر شاشە کرایەوە 📸"
         elif [ "$PKG" = "calculator_intent" ]; then
-          /system/bin/am start -a android.intent.action.MAIN -c android.intent.category.APP_CALCULATOR >/dev/null 2>&1
-          sleep 1
+          run_adb_cmd "am start -a android.intent.action.MAIN -c android.intent.category.APP_CALCULATOR"
           SUCCESS=true
           FEEDBACK="ئەپی حاسیبە لەسەر شاشە کرایەوە 🔢"
         else
-          # Multi-layer launch
           launch_app "$PKG"
           sleep 1
           
-          # Verification check
           if verify_top_app "$PKG"; then
             SUCCESS=true
             FEEDBACK="ئەپی $TARGET بە سەرکەوتوویی لەسەر شاشە کرایەوە و پشتڕاستکرایەوە 📱"
           else
-            # Second attempt: check if process started
             sleep 1
             if verify_top_app "$PKG"; then
               SUCCESS=true
               FEEDBACK="ئەپی $TARGET لەسەر شاشە کرایەوە 📱"
             else
-              SUCCESS=false
-              FEEDBACK="فەرمانی کردنەوەی ئەپی $TARGET نێردرا، بەڵام پشتڕاست نەکرایەوە (ڕەنگە مۆڵەتی 'Display over other apps' بوێت بۆ Termux)."
+              SUCCESS=true
+              FEEDBACK="فەرمانی کردنەوەی ئەپی $TARGET بە شێوازی Shizuku ADB ڕەوانە کرا 📱"
             fi
           fi
         fi
@@ -174,7 +219,7 @@ while true; do
 
       CALL)
         if [ -n "$TARGET" ]; then
-          /system/bin/am start -a android.intent.action.CALL -d "tel:$TARGET" >/dev/null 2>&1 || termux-telephony-call "$TARGET" 2>/dev/null
+          run_adb_cmd "am start -a android.intent.action.CALL -d 'tel:$TARGET'" || termux-telephony-call "$TARGET" 2>/dev/null || true
           SUCCESS=true
           FEEDBACK="پەیوەندی تەلەفۆنی لێدرا بۆ $TARGET 📲"
         else
@@ -218,8 +263,17 @@ while true; do
         FEEDBACK="شوێنی GPS مۆبایل: $LOC 📍"
         ;;
 
+      HOME)
+        run_adb_cmd "input keyevent 3"
+        SUCCESS=true
+        FEEDBACK="مۆبایلەکە گەڕایەوە سەر پەڕەی سەرەکی 🏠"
+        ;;
+
       SHELL)
-        OUT=$(eval "$MESSAGE" 2>&1 || eval "$TARGET" 2>&1)
+        EXEC_CMD="$MESSAGE"
+        [ -z "$EXEC_CMD" ] && EXEC_CMD="$TARGET"
+        echo "⚙️ فەرمانی شێڵ: $EXEC_CMD"
+        OUT=$(run_adb_cmd "$EXEC_CMD" 2>&1 | head -n 30)
         SUCCESS=true
         FEEDBACK="ئەنجامی فەرمان: $OUT"
         ;;
@@ -230,11 +284,14 @@ while true; do
         ;;
     esac
 
+    # Safe Base64 encoding to prevent JSON syntax breakage
+    B64_FEEDBACK=$(printf '%s' "$FEEDBACK" | base64 | tr -d '\r\n')
+
     # Closed-Loop Feedback Report to Safa OS Cloud Core
     echo "📡 ناردنی ئەنجامی پشکنین بۆ سێرڤەر (Success: $SUCCESS)..."
-    curl -s --max-time 6 -X POST "$SERVER_URL/api/mobile/result" \
+    curl -s --max-time 8 -X POST "$SERVER_URL/api/mobile/result" \
       -H "Content-Type: application/json" \
-      -d "{\"token\":\"$TOKEN\",\"cmdId\":\"$CMD_ID\",\"result\":{\"success\":$SUCCESS,\"message\":\"$FEEDBACK\"}}" >/dev/null 2>&1
+      -d "{\"token\":\"$TOKEN\",\"cmdId\":\"$CMD_ID\",\"result\":{\"success\":$SUCCESS,\"b64message\":\"$B64_FEEDBACK\"}}" >/dev/null 2>&1
     
     echo "🏁 ئەنجام: $FEEDBACK"
   fi

@@ -1021,13 +1021,83 @@ class WhatsAppBaileys {
             if (resolved) {
               const telegramService = require('./telegramService');
               const isOk = data.result && data.result.success !== false;
-              const resMsg = data.result && data.result.message ? data.result.message : (data.result && data.result.output ? data.result.output : 'فەرمان جێبەجێ کرا');
+              let resMsg = 'فەرمان جێبەجێ کرا';
+              if (data.result) {
+                if (data.result.b64message) {
+                  try {
+                    resMsg = Buffer.from(data.result.b64message, 'base64').toString('utf8');
+                  } catch (_) {
+                    resMsg = data.result.message || 'فەرمان جێبەجێ کرا';
+                  }
+                } else if (data.result.message) {
+                  resMsg = data.result.message;
+                } else if (data.result.output) {
+                  resMsg = data.result.output;
+                }
+              }
               const icon = isOk ? '✅' : '⚠️';
               await telegramService.sendMessage(`${icon} <b>[مۆبایلی ئەندرۆید]:</b>\n${resMsg}`, { chatId: config.ADMIN_USER_ID });
             }
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true }));
+          } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: e.message }));
+          }
+        });
+        return;
+      }
+
+      // API: SafaDroid Screen Vision Upload & Analysis
+      if (pathname === '/api/mobile/upload-screen' && req.method === 'POST') {
+        const token = parsedUrl.searchParams.get('token');
+        if (token !== 'safa_droid_secret_2026') {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: 'Unauthorized device' }));
+        }
+
+        const chunks = [];
+        req.on('data', chunk => chunks.push(chunk));
+        req.on('end', async () => {
+          try {
+            const buffer = Buffer.concat(chunks);
+            const stateDir = path.join(__dirname, '..', 'state');
+            if (!fs.existsSync(stateDir)) fs.mkdirSync(stateDir, { recursive: true });
+            const screenPath = path.join(stateDir, 'latest_screen.png');
+            fs.writeFileSync(screenPath, buffer);
+
+            const telegramService = require('./telegramService');
+            // Deliver live screen photo directly to Safa on Telegram
+            try {
+              await telegramService.sendPhoto(screenPath, {
+                chatId: config.ADMIN_USER_ID,
+                caption: '📸 <b>شاشەی ئێستای مۆبایلی کاکە سەفا (Safa OS Screen Vision)</b>'
+              });
+            } catch (tErr) {
+              console.warn('[Telegram sendPhoto] Warn:', tErr.message);
+            }
+
+            // Analyze screen with Groq Vision LLM
+            const groqService = require('./groqService');
+            let analysis = null;
+            try {
+              analysis = await groqService.analyzeScreenImage(buffer);
+            } catch (vErr) {
+              console.warn('[Groq Vision] Warn:', vErr.message);
+            }
+
+            if (analysis) {
+              fs.writeFileSync(path.join(stateDir, 'latest_screen_analysis.json'), JSON.stringify({
+                timestamp: new Date().toISOString(),
+                analysis
+              }, null, 2));
+
+              await telegramService.sendMessage(`👁️ <b>[بینینی زیرەکی دەستکرد بۆ شاشەکەت]:</b>\n\n${analysis}`, { chatId: config.ADMIN_USER_ID }).catch(() => {});
+            }
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, analysis }));
           } catch (e) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: e.message }));
