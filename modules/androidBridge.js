@@ -51,7 +51,7 @@ class AndroidBridge {
       if (fs.existsSync(this.statusFile)) {
         const s = JSON.parse(fs.readFileSync(this.statusFile, 'utf8'));
         const diffMs = Date.now() - new Date(s.lastSeen).getTime();
-        s.online = diffMs < 60000; // online if seen within 60s
+        s.online = diffMs < 45000; // online if seen within 45s
         s.secondsAgo = Math.round(diffMs / 1000);
         return s;
       }
@@ -60,9 +60,18 @@ class AndroidBridge {
   }
 
   queueCommand(type, payload = {}) {
+    this.loadQueue();
+    // Auto-expire commands older than 3 minutes to keep the queue clean
+    const now = Date.now();
+    this.queue.forEach(c => {
+      if (c.status === 'PENDING' && (now - new Date(c.createdAt).getTime()) > 180000) {
+        c.status = 'EXPIRED';
+      }
+    });
+
     const cmd = {
-      id: 'cmd_' + Date.now(),
-      type: type.toUpperCase(), // CALL, SMS, GPS, PHOTO, VIBRATE, TORCH, CLIPBOARD, SPEAK, SHELL
+      id: 'cmd_' + now,
+      type: type.toUpperCase(),
       payload,
       status: 'PENDING',
       createdAt: new Date().toISOString()
@@ -74,6 +83,14 @@ class AndroidBridge {
 
   getPendingCommands() {
     this.loadQueue();
+    const now = Date.now();
+    // Expire commands older than 2.5 minutes
+    this.queue.forEach(c => {
+      if (c.status === 'PENDING' && (now - new Date(c.createdAt).getTime()) > 150000) {
+        c.status = 'EXPIRED';
+      }
+    });
+    this.saveQueue();
     return this.queue.filter(c => c.status === 'PENDING');
   }
 
@@ -88,6 +105,11 @@ class AndroidBridge {
       return cmd;
     }
     return null;
+  }
+
+  clearQueue() {
+    this.queue = [];
+    this.saveQueue();
   }
 }
 

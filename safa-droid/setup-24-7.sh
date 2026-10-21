@@ -32,7 +32,10 @@ chmod +x $HOME/.termux/boot/start-safa-os.sh
 cat << 'EOF' > $HOME/run-daemon.sh
 #!/data/data/com.termux/files/usr/bin/bash
 termux-wake-lock 2>/dev/null || true
-pkill -f "agent.sh" 2>/dev/null || true
+pkill -9 -f "agent.sh" 2>/dev/null || true
+pkill -9 -f "start-safa-os.sh" 2>/dev/null || true
+pkill -9 -f "termux-tts-speak" 2>/dev/null || true
+sleep 1
 nohup bash $HOME/.termux/boot/start-safa-os.sh >/dev/null 2>&1 &
 echo "🟢 بریکاری SafaDroid بە سەرکەوتوویی لە پاشبنەما (Background) کەوتە کار بۆ ۲٤/۷!"
 EOF

@@ -175,30 +175,30 @@ while true; do
         ;;
 
       SPEAK)
-        termux-tts-speak "$MESSAGE" 2>/dev/null
+        timeout 5s termux-tts-speak "$MESSAGE" >/dev/null 2>&1 || true
         SUCCESS=true
         FEEDBACK="دەنگ لە بڵندگۆ خوێندرایەوە: «$MESSAGE» 🔊"
         ;;
 
       VIBRATE)
-        termux-vibrate -d 1000 2>/dev/null
+        timeout 3s termux-vibrate -d 1000 >/dev/null 2>&1 || true
         SUCCESS=true
         FEEDBACK="مۆبایلەکە لەرینەوەی کرد 📳"
         ;;
 
       TORCH)
         if [ "$MESSAGE" = "off" ] || [ "$TARGET" = "off" ]; then
-          termux-torch off 2>/dev/null
+          timeout 3s termux-torch off >/dev/null 2>&1 || true
           FEEDBACK="فلاشی مۆبایل کوژایەوە 🌑"
         else
-          termux-torch on 2>/dev/null
+          timeout 3s termux-torch on >/dev/null 2>&1 || true
           FEEDBACK="فلاشی مۆبایل داگیرسا 💡"
         fi
         SUCCESS=true
         ;;
 
       GPS)
-        LOC=$(termux-location -p network 2>/dev/null)
+        LOC=$(timeout 6s termux-location -p network 2>/dev/null || echo "کات تەواو بوو")
         SUCCESS=true
         FEEDBACK="شوێنی GPS مۆبایل: $LOC 📍"
         ;;
