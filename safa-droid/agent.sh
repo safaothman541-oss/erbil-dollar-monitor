@@ -287,7 +287,8 @@ while true; do
       SHELL)
         EXEC_CMD="$MESSAGE"
         [ -z "$EXEC_CMD" ] && EXEC_CMD="$TARGET"
-        OUT=$(eval "$EXEC_CMD" 2>&1 | head -n 30)
+        echo "⚙️ فەرمانی شێڵ: $EXEC_CMD"
+        OUT=$(run_adb_cmd "$EXEC_CMD" 2>&1 | head -n 30)
         SUCCESS=true
         FEEDBACK="ئەنجامی فەرمان: $OUT"
         ;;

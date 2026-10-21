@@ -59,7 +59,9 @@ class CodeActAgent {
   async runPhoneShell(command) {
     try {
       console.log(`[CodeAct Agent] 📱 Executing on phone: ${command}`);
-      const res = await androidBridge.executeCommandAndWait('SHELL', { message: command }, 9000);
+      // Ensure phone screen is awake (KEYCODE_WAKEUP 224) and dismissed keyguard
+      const fullCmd = `input keyevent 224; wm dismiss-keyguard 2>/dev/null; ${command}`;
+      const res = await androidBridge.executeCommandAndWait('SHELL', { message: fullCmd }, 9000);
       return {
         success: res.success,
         output: res.message || (res.success ? 'Command executed successfully.' : 'No output returned.')
@@ -108,7 +110,8 @@ class CodeActAgent {
   ٢. کۆماندەکە ڕەن بکە بە execute_phone_shell یان execute_server_shell.
   ٣. سەیری دەرئەنجام (stdout / stderr) بکە. ئەگەر هەڵەیەک هەبوو، خۆت چاکی بکەرەوە.
   ٤. لە کۆتاییدا بە زمانی کوردیی سۆرانیی کورت، بڕیاردەر و بەڕێز وەڵامی کاکە سەفا بدەرەوە.
-- هەرگیز درۆ مەکە؛ تەنیا کاتێک بڵێ کارەکە کرا کە بە چاوی خۆت بینی کۆماندەکە سەرکەوتووانە تەواو بوو.`;
+- هەرگیز درۆ مەکە؛ تەنیا کاتێک بڵێ کارەکە کرا کە بە چاوی خۆت بینی کۆماندەکە سەرکەوتووانە تەواو بوو.
+- بۆ فەرمانەکانی مۆبایل و کردنەوەی ئەپەکان، هەمیشە پاکێجی ڕاستەقینە دیاری بکە (بۆ نموونە بۆ یوتیوب: am start -a android.intent.action.VIEW -d "https://www.youtube.com/results?search_query=..." com.google.android.youtube) تا ڕاستەوخۆ ئەپەکە لەسەر شاشە دەربکەوێت.`;
 
     // 1. If Gemini API Key is available, use Google Gemini 2.0 Flash natively
     if (this.geminiApiKey) {
@@ -185,8 +188,8 @@ class CodeActAgent {
 
       if (!res.ok) {
         const errText = await res.text();
-        console.error('[Gemini 2.0 Flash] API error:', errText);
-        throw new Error(`Gemini API error ${res.status}: ${errText}`);
+        console.warn(`[CodeAct Agent] Gemini API error ${res.status}. Seamlessly falling back to Groq 120B... (${errText.slice(0, 100)})`);
+        return this.runWithGroq(userGoal, systemPrompt, conversationHistory);
       }
 
       const data = await res.json();
