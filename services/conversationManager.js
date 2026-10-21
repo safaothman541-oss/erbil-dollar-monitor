@@ -9,6 +9,140 @@ const androidBridge = require('../modules/androidBridge');
 const HISTORY_FILE = path.join(config.STATE_DIR || path.join(__dirname, '..', 'state'), 'conversation_history.json');
 const MAX_HISTORY_TURNS = 16;
 
+// Native AI Tools Definition (Pure LLM Function Calling)
+const AI_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'whatsapp_send',
+      description: 'Send a WhatsApp message or greeting directly to a person, contact, or phone number. Always use this whenever Safa wants to message, greet, or contact anyone on WhatsApp, even if he says first open WhatsApp then find someone and send.',
+      parameters: {
+        type: 'object',
+        properties: {
+          recipient: { type: 'string', description: 'Name of the contact (e.g. ئاشنا, Ashna, دایکم, Suhaib) or phone number' },
+          message: { type: 'string', description: 'The greeting or message text to send' }
+        },
+        required: ['recipient', 'message']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'open_app',
+      description: 'Launch an application on Android just to view it (e.g., youtube, chrome, telegram, settings, camera, calculator, fib, fastpay). Do NOT call this if the goal is sending a WhatsApp message or making a call.',
+      parameters: {
+        type: 'object',
+        properties: {
+          app_name: { type: 'string', description: 'Name of app or package' }
+        },
+        required: ['app_name']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'make_call',
+      description: 'Place a direct phone call to a phone number or contact',
+      parameters: {
+        type: 'object',
+        properties: {
+          target: { type: 'string', description: 'Phone number or contact name' }
+        },
+        required: ['target']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'send_sms',
+      description: 'Send an SMS text message to a phone number',
+      parameters: {
+        type: 'object',
+        properties: {
+          target: { type: 'string', description: 'Phone number' },
+          message: { type: 'string', description: 'SMS message text' }
+        },
+        required: ['target', 'message']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'take_screenshot',
+      description: 'Capture and view the live screen ONLY when Safa explicitly asks to see his screen or take a screenshot (e.g., دەتوانی شاشەکەم ببینی؟, شاشەم ببینە, ڕەسمی شاشە بگرە).',
+      parameters: { type: 'object', properties: {} }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'device_control',
+      description: 'Hardware controls: torch/flashlight on or off, vibration, go to home screen, or get GPS location',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['torch_on', 'torch_off', 'vibrate', 'home_screen', 'gps_location']
+          }
+        },
+        required: ['action']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'record_expense',
+      description: 'Record an expense when Safa mentions spending money or buying something',
+      parameters: {
+        type: 'object',
+        properties: {
+          amount: { type: 'number', description: 'Amount of money' },
+          currency: { type: 'string', enum: ['IQD', 'USD'] },
+          category: { type: 'string', description: 'Category of expense' },
+          note: { type: 'string', description: 'Description' }
+        },
+        required: ['amount', 'currency', 'category']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'record_task',
+      description: 'Record an agenda task or todo item',
+      parameters: {
+        type: 'object',
+        properties: {
+          task: { type: 'string', description: 'Task title' },
+          priority: { type: 'string', enum: ['high', 'medium'] },
+          due_date: { type: 'string' }
+        },
+        required: ['task']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'run_shell',
+      description: 'Execute an advanced bash or ADB shell command on Android',
+      parameters: {
+        type: 'object',
+        properties: {
+          command: { type: 'string' }
+        },
+        required: ['command']
+      }
+    }
+  }
+];
+
 class ConversationManager {
   constructor() {
     this.history = [];
@@ -42,158 +176,7 @@ class ConversationManager {
     this.saveHistory();
   }
 
-  // Fast-Path Instant Device Command Matcher (Zero latency, Zero questions)
-  checkDirectDeviceCommand(text) {
-    const clean = text.trim();
-
-    // 0. SCREENSHOT & VISION: دەتوانی شاشەکە ببینی؟ / وێنەی شاشە / شاشەم ببینە
-    if (/(?:دەتوانیت|دەتوانی|ئەتوانی)?\s*(?:شاشەکەم|شاشەکە|شاشە|سکرین|screenshot)\s*(?:ببینیت|ببینی|سەیر بکە|بگرە|پیشان بدە|دیارە)?/i.test(clean) ||
-        /(?:وێنەی شاشە|ڕەسمی شاشە|سەیری شاشەکەم بکە|شاشەکەم پیشان بدە)/i.test(clean)) {
-      const cmd = androidBridge.queueCommand('SCREENSHOT', {});
-      return {
-        reply: `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ وێنەی ڕاستەوخۆی شاشەی مۆبایلەکەت دەگیرێت، بۆت دەنێردرێت و لە ڕێگەی زیرەکی دەستکردەوە شرۆڤە دەکرێت 👁️📱`,
-        actions: [{ type: 'DEVICE', item: cmd }]
-      };
-    }
-
-    // 0.1 WHATSAPP MULTI-STEP: سەرەتا بەرنامەی واتسئاپ بکەرەوە، دواتر [ناو] بدۆزەوە، دواتر [نامە] بۆ بنێرە
-    const waMultiMatch = clean.match(/(?:واتسئاپ|واتساب|whatsapp).*(?:دواتر|پاشان)?\s*([^\s،,]+)\s*(?:بدۆزەوە|ببینەوە).*(?:دواتر|پاشان)?\s*(?:نامەی|سڵاوی|دەقی)?\s*[:«"“]?\s*([^«"”]+?)\s*(?:بۆ بنێرە|بنێرە|بکە)/i) ||
-                         clean.match(/(?:لە واتسئاپ|بە واتسئاپ|واتسئاپ)\s*(?:نامە|سڵاو|مەسج)\s*(?:بنێرە|بکە)?\s*(?:بۆ|بە)\s*([^\s،,]+)\s*(?:و\s*بڵێ|دەقی|:)??\s*(.*)/i);
-    if (waMultiMatch) {
-      const contact = waMultiMatch[1].replace(/[»"”]/g, '').trim();
-      const textToSend = (waMultiMatch[2] || 'سڵاو').replace(/[»"”]/g, '').trim();
-      const cmd = androidBridge.queueCommand('WHATSAPP_SEND', { target: contact, message: textToSend });
-      return {
-        reply: `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ ئەپی واتسئاپ لەسەر شاشە دەکرێتەوە، ناو یان ژمارەی <b>${contact}</b> دەدۆزرێتەوە و نامەی <i>«${textToSend}»</i> ـی بۆ دەنێردرێت 💬📱`,
-        actions: [{ type: 'DEVICE', item: cmd }]
-      };
-    }
-
-    // 1. CALL: پەیوەندی بکە / تەلەفۆن بکە / تێل بکە
-    const callMatch = clean.match(/(?:تەلەفۆن|پەیوەندی|تێل|call)\s*(?:بکە|بگرە|لێبدە)?\s*(?:بە|بۆ)?\s*(07\d{8,9}|\+?964\d{9,10})/i);
-    if (callMatch) {
-      const target = callMatch[1];
-      const cmd = androidBridge.queueCommand('CALL', { target, number: target });
-      return {
-        reply: `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ پەیوەندی بە ژمارەی <b>${target}</b> دەبەسترێت لەسەر مۆبایلەکەت 📲`,
-        actions: [{ type: 'DEVICE', item: cmd }]
-      };
-    }
-
-    // 2. SPEAK: لە بڵندگۆ بڵێ / بە دەنگ بڵێ / قسە بکە
-    const speakMatch = clean.match(/(?:لە بڵندگۆ|بە دەنگ|بڵندگۆ|speak|دەنگ)\s*(?:بڵێ|دەڵێ|قسە بکە)?\s*[:«"“]?\s*(.*)/i);
-    if (speakMatch && speakMatch[1] && speakMatch[1].length > 1) {
-      let msg = speakMatch[1].replace(/[»"”]/g, '').trim();
-      if (msg) {
-        const cmd = androidBridge.queueCommand('SPEAK', { text: msg, message: msg });
-        return {
-          reply: `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ لە بڵندگۆی مۆبایلەکەتەوە دەخوێندرێتەوە: <i>«${msg}»</i> 🔊`,
-          actions: [{ type: 'DEVICE', item: cmd }]
-        };
-      }
-    }
-
-    // 3. SMS: نامە بنێرە / کورتەنامە / مەسج
-    const smsMatch = clean.match(/(?:نامە|کورتەنامە|مەسج|sms)\s*(?:بنێرە|بکە)?\s*(?:بە|بۆ)?\s*(07\d{8,9}|\+?964\d{9,10})\s*(?:و\s*بڵێ|دەقی|:)??\s*(.*)/i);
-    if (smsMatch) {
-      const target = smsMatch[1];
-      const body = (smsMatch[2] || '').trim();
-      const cmd = androidBridge.queueCommand('SMS', { target, number: target, message: body });
-      return {
-        reply: `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ نامەی کورت (SMS) دەنێردرێت بۆ <b>${target}</b> ✉️\n${body ? `• دەق: <i>${body}</i>` : ''}`,
-        actions: [{ type: 'DEVICE', item: cmd }]
-      };
-    }
-
-    // 4. GPS / Location: شوێنەکەم / لۆکەیشن
-    if (/(?:شوێنەکەم|شوێنی ئێستا|لۆکەیشن|جی پی ئێس|gps|location)/i.test(clean)) {
-      const cmd = androidBridge.queueCommand('GPS', {});
-      return {
-        reply: `فەرمانت بەسەر چاو کاکە سەفا، خەریکی دەرهێنانی نوێترین شوێنی GPS ـی مۆبایلەکەتە 📍`,
-        actions: [{ type: 'DEVICE', item: cmd }]
-      };
-    }
-
-    // 5. TORCH / Flash: فلاش
-    if (/(?:فلاش|لایت|torch|flashlight)/i.test(clean)) {
-      const isOff = /(?:بکوژێنەوە|کوژانەوە|off)/i.test(clean);
-      const state = isOff ? 'off' : 'on';
-      const cmd = androidBridge.queueCommand('TORCH', { state });
-      return {
-        reply: `فەرمانت بەسەر چاو کاکە سەفا، فلاشی مۆبایلەکەت ${state === 'on' ? 'داگیرسا 💡' : 'کوژایەوە 🌑'}`,
-        actions: [{ type: 'DEVICE', item: cmd }]
-      };
-    }
-
-    // 6. VIBRATE: لەرینەوە / ڤایبرەیشن
-    if (/(?:ڤایبرەیشن|لەرینەوە|بلەرێنەوە|vibrate)/i.test(clean)) {
-      const cmd = androidBridge.queueCommand('VIBRATE', { duration: 1500 });
-      return {
-        reply: `فەرمانت بەسەر چاو کاکە سەفا، مۆبایلەکەت لەرینەوەی (Vibrate) کرد 📳`,
-        actions: [{ type: 'DEVICE', item: cmd }]
-      };
-    }
-
-    // 7. CAMERA: کامێرا لەسەر شاشە / وێنەگرتن
-    if (/(?:کامێرا|کامێرای|وێنە|وێنەیەک|camera|photo)/i.test(clean)) {
-      const cmd = androidBridge.queueCommand('CAMERA', {});
-      return {
-        reply: `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ ئەپی کامێرای مۆبایلت لەسەر شاشە دەکرێتەوە و وێنە دەگرێت 📸`,
-        actions: [{ type: 'DEVICE', item: cmd }]
-      };
-    }
-
-    // 8. TYPE: نووسین لەسەر شاشە / کیبۆرد
-    const typeMatch = clean.match(/(?:لەسەر کیبۆرد|لەسەر شاشە|تایپ بکە|بنووسە|بنوسە|type)\s*(?:ئەو شتە|ئەم دەقە|دەقی|بنوسە|بنووسە)?\s*[:«"“]?\s*(.*)/i);
-    if (typeMatch && typeMatch[1] && typeMatch[1].length > 0) {
-      let textToType = typeMatch[1].replace(/^(?:بنوسە|بنووسە|type)\s*[:«"“]?\s*/i, '').replace(/[»"”]/g, '').trim();
-      if (textToType) {
-        const cmd = androidBridge.queueCommand('TYPE', { message: textToType, text: textToType });
-        return {
-          reply: `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ دەقی <i>«${textToType}»</i> لەسەر شاشەی مۆبایلەکەت دەنووسرێت ⌨️`,
-          actions: [{ type: 'DEVICE', item: cmd }]
-        };
-      }
-    }
-
-    // 9. APP: کردنەوەی هەر بەرنامەیەک لەسەر شاشە (Dynamic Any-App Launcher)
-    const appMatch = clean.match(/(?:ئەپی|بەرنامەی|بڕۆ ناو|بڕۆ بۆ ناو|ئەپڵیکەیشنی)\s*[:«"“]?\s*([^\s«"”]+)/i) ||
-                     clean.match(/([^\s«"”]+)\s*(?:بکەرەوە|بکەوە|open)/i);
-    if (appMatch) {
-      let targetApp = appMatch[1].replace(/[»"”]/g, '').trim();
-      // Ignore if targetApp is already handled
-      if (targetApp && !/(?:کامێرا|فلاش|ڤایبرەیشن|دەنگ|sms|نامە|تەلەفۆن|پەیوەندی|ئەم|ئەو|تکایە)/i.test(targetApp)) {
-        const cmd = androidBridge.queueCommand('APP', { target: targetApp });
-        return {
-          reply: `فەرمانت بەسەر چاو کاکە سەفا، خەریکی کردنەوە و پشکنینی ئەپی <b>${targetApp}</b>ە لەسەر شاشەی مۆبایلەکەت 📱`,
-          actions: [{ type: 'DEVICE', item: cmd }]
-        };
-      }
-    }
-
-    // 10. HOME: پەڕەی سەرەکی
-    if (/(?:بڕۆ بۆ سەر شاشە|پەڕەی سەرەکی|home screen|home)/i.test(clean)) {
-      const cmd = androidBridge.queueCommand('HOME', {});
-      return {
-        reply: `فەرمانت بەسەر چاو کاکە سەفا، مۆبایلەکەت دەچێتە سەر پەڕەی سەرەکی 🏠`,
-        actions: [{ type: 'DEVICE', item: cmd }]
-      };
-    }
-
-    return null;
-  }
-
   async chat(userMessage) {
-    // 1. Check direct instant fast-path (Zero questions, Zero latency)
-    const fastPath = this.checkDirectDeviceCommand(userMessage);
-    if (fastPath) {
-      this.history.push({ role: 'user', content: userMessage });
-      this.history.push({ role: 'assistant', content: fastPath.reply });
-      this.saveHistory();
-      return fastPath;
-    }
-
-    // 2. Append user turn
     this.history.push({ role: 'user', content: userMessage });
     if (this.history.length > MAX_HISTORY_TURNS) {
       this.history = this.history.slice(-MAX_HISTORY_TURNS);
@@ -202,20 +185,11 @@ class ConversationManager {
     const systemPrompt = `تۆ سەرۆکی دیوان و جێبەجێکاری باڵای کاکە سەفایت (Safa OS Executive Doer).
 سەفا ئەندازیاری دەرچووی بەشی ICT لە زانکۆی پۆلیتەکنیکی هەولێرە و خاوەن بیزنسە. کاتی زۆر کەمە و ڕقی لە فەلسەفە و پرسیارکردنی بێسوودە!
 
-یاسا و ڕێساکانی جێبەجێکردن (زۆر گرنگ):
-١. هەر فەرمان یان داواکارییەکت پێدەدرێت، یەکسەر، دەستبەجێ و بێ هیچ پرسیارێکی زیادە جێبەجێی بکە!
-   - بە هیچ جۆرێک مەکەوەرە پرسیارکردن و سەرقاڵکردنی سەفا. کارەکە بکە و کۆتایی پێ بهێنە.
-   - ئەگەر باسی خەرجی، ئەرک، بیرۆکە، پۆست، کالێندەر، یان مۆبایل کرا، یەکسەر تاگی کردار دابنێ تا سیستمەکە جێبەجێی بکات.
-٢. تەنها و تەنها کاتێک بۆچوون یان پرسیار بکە کە سەفا خۆی ڕاستەوخۆ داوای ڕاوێژی لێ کردبیت (وەک "ڕات چییە؟"، "پێشنیارت چییە؟"). لە غەیری ئەوەدا هەرگیز پرسیار مەکە!
-٣. تاگە فەرمییەکان بۆ جێبەجێکردن لە کۆتایی وەڵامەکەتدا:
-   - بۆ فەرمانی مۆبایل: [ACTION:DEVICE:{"action":"CALL|SMS|GPS|PHOTO|VIBRATE|TORCH|SPEAK","target":"ژمارە یان دەق","message":"دەق"}]
-   - بۆ خەرجی: [ACTION:EXPENSE:{"amount":25000,"currency":"IQD","category":"خۆراک|سوتەمەنی|تەکنەلۆژیا|کار|کەسی","note":"تێبینی"}]
-   - بۆ ئەرک: [ACTION:TASK:{"task":"ناوی ئەرک","dueDate":"کات","priority":"بەپەلە|ئاسایی"}]
-   - بۆ بیرۆکە: [ACTION:IDEA:{"title":"سەردێڕ","analysis":"شیکاری","tags":["تاگ1"]}]
-   - بۆ کالێندەر: [ACTION:CALENDAR:{"title":"مەوعید","time":"2026-10-22T14:00:00","duration":60,"description":"تێبینی"}]
-   - بۆ ئیمەیڵ: [ACTION:EMAIL:{"to":"ناونیشان","subject":"سەردێڕ","body":"دەقی نامە"}]
-
-شێوازی قسەکردن: زۆر کورت، بڕیاردەر، بەڕێز، ئەندازیارانە بە کوردیی سۆرانی پوخت. ئەگەر کارەکەت کرد تەنها بڵێ فەرمانت جێبەجێ کرا!`;
+یاسا گرنگەکان:
+١. کاتێک سەفا داوای هەر کردارێک دەکات (وەک ناردنی نامەی واتسئاپ، پەیوەندی، کردنەوەی ئەپ، یان سکرینشۆت)، دەستبەجێ فەنکشن و تووڵە گونجاوەکە (Tool Call) بانگ بکە بێ ئەوەی یەک پرسیار بکەیت.
+٢. وشەکانی وەک (ئاشنا، سوهەیب، کاوان، ڕێکان) ناوی کەس و هاوڕێن، بۆیە ئەگەر وتی بۆ ئاشنا نامە بنێرە ڕاستەوخۆ فەنکشنی whatsapp_send بانگ بکە لەگەڵ recipient: ئاشنا.
+٣. هەرگیز لە لای خۆتەوە سکرینشۆت مەگرە مەگەر سەفا خۆی بە دەمی خۆی بڵێت «شاشەم ببینە» یان «دەتوانی شاشەکە ببینی؟».
+٤. کورتترین، بڕیاردەرترین و بەڕێزترین وەڵام بە کوردیی سۆرانی بدەرەوە.`;
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -223,20 +197,98 @@ class ConversationManager {
     ];
 
     try {
-      const reply = await groqService.fastChat(messages, { temperature: 0.4, max_tokens: 1200 });
+      const response = await groqService.chatWithTools(messages, AI_TOOLS);
+      const actionsExecuted = [];
+      let replyText = response.content || '';
 
-      // Append assistant turn
-      this.history.push({ role: 'assistant', content: reply });
+      if (response.tool_calls && response.tool_calls.length > 0) {
+        for (const tc of response.tool_calls) {
+          const fn = tc.function.name;
+          let args = {};
+          try { args = JSON.parse(tc.function.arguments); } catch (_) {}
+
+          if (fn === 'whatsapp_send') {
+            const recipient = args.recipient || 'هاوڕێ';
+            const msg = args.message || 'سڵاو';
+            const cmd = androidBridge.queueCommand('WHATSAPP_SEND', { target: recipient, message: msg });
+            actionsExecuted.push({ type: 'DEVICE', item: cmd });
+            if (!replyText) {
+              replyText = `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ ئەپی واتسئاپ دەکرێتەوە و نامەی «${msg}» بۆ <b>${recipient}</b> دەنێردرێت 💬📱`;
+            }
+          } else if (fn === 'open_app') {
+            const app = args.app_name || 'app';
+            const cmd = androidBridge.queueCommand('APP', { target: app });
+            actionsExecuted.push({ type: 'DEVICE', item: cmd });
+            if (!replyText) {
+              replyText = `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ ئەپی <b>${app}</b> لەسەر شاشەی مۆبایلەکەت دەکرێتەوە 📱`;
+            }
+          } else if (fn === 'make_call') {
+            const target = args.target;
+            const cmd = androidBridge.queueCommand('CALL', { target });
+            actionsExecuted.push({ type: 'DEVICE', item: cmd });
+            if (!replyText) {
+              replyText = `فەرمانت بەسەر چاو کاکە سەفا، دەستبەجێ پەیوەندی بە <b>${target}</b> دەبەسترێت 📲`;
+            }
+          } else if (fn === 'send_sms') {
+            const cmd = androidBridge.queueCommand('SMS', { target: args.target, message: args.message });
+            actionsExecuted.push({ type: 'DEVICE', item: cmd });
+            if (!replyText) {
+              replyText = `فەرمانت بەسەر چاو کاکە سەفا، نامەی کورت بۆ <b>${args.target}</b> دەنێردرێت ✉️`;
+            }
+          } else if (fn === 'take_screenshot') {
+            const cmd = androidBridge.queueCommand('SCREENSHOT', {});
+            actionsExecuted.push({ type: 'DEVICE', item: cmd });
+            if (!replyText) {
+              replyText = `بەڵێ کاکە سەفا! وێنەی ڕاستەوخۆی شاشەی مۆبایلەکەت گیرا و ڕاستەوخۆ بۆت نێردرا 👁️📱`;
+            }
+          } else if (fn === 'device_control') {
+            const act = args.action;
+            if (act === 'torch_on') {
+              const cmd = androidBridge.queueCommand('TORCH', { state: 'on' });
+              actionsExecuted.push({ type: 'DEVICE', item: cmd });
+              if (!replyText) replyText = `فلاشی مۆبایلەکەت داگیرسا 💡`;
+            } else if (act === 'torch_off') {
+              const cmd = androidBridge.queueCommand('TORCH', { state: 'off' });
+              actionsExecuted.push({ type: 'DEVICE', item: cmd });
+              if (!replyText) replyText = `فلاشی مۆبایلەکەت کوژایەوە 🌑`;
+            } else if (act === 'vibrate') {
+              const cmd = androidBridge.queueCommand('VIBRATE', { duration: 1500 });
+              actionsExecuted.push({ type: 'DEVICE', item: cmd });
+              if (!replyText) replyText = `مۆبایلەکەت لەرینەوەی کرد 📳`;
+            } else if (act === 'home_screen') {
+              const cmd = androidBridge.queueCommand('HOME', {});
+              actionsExecuted.push({ type: 'DEVICE', item: cmd });
+              if (!replyText) replyText = `مۆبایلەکە گەڕایەوە سەر پەڕەی سەرەکی 🏠`;
+            } else if (act === 'gps_location') {
+              const cmd = androidBridge.queueCommand('GPS', {});
+              actionsExecuted.push({ type: 'DEVICE', item: cmd });
+              if (!replyText) replyText = `خەریکی دەرهێنانی نوێترین شوێنی GPS ـی مۆبایلەکەتە 📍`;
+            }
+          } else if (fn === 'record_expense') {
+            const saved = secondBrain.addExpense(args);
+            actionsExecuted.push({ type: 'EXPENSE', item: saved });
+            if (!replyText) replyText = `خەرجی ${args.amount} ${args.currency} بۆ ${args.category} بە سەرکەوتوویی تۆمارکرا 💳`;
+          } else if (fn === 'record_task') {
+            const saved = secondBrain.addTask(args);
+            actionsExecuted.push({ type: 'TASK', item: saved });
+            if (!replyText) replyText = `ئەرکی «${args.task}» بە سەرکەوتوویی خرایە کارنامەکەتەوە 📝`;
+          } else if (fn === 'run_shell') {
+            const cmd = androidBridge.queueCommand('SHELL', { message: args.command });
+            actionsExecuted.push({ type: 'DEVICE', item: cmd });
+            if (!replyText) replyText = `فەرمانی سیستەم جێبەجێ کرا ⚙️`;
+          }
+        }
+      }
+
+      if (!replyText) {
+        replyText = 'فەرمانت جێبەجێ کرا کاکە سەفا 🫡';
+      }
+
+      this.history.push({ role: 'assistant', content: replyText });
       this.saveHistory();
 
-      // Check and execute actions if present
-      const actionsExecuted = this.executeEmbeddedActions(reply);
-
-      // Clean reply for user display (strip raw action tags)
-      const cleanReply = reply.replace(/\[ACTION:[^\]]+\]/g, '').trim();
-
       return {
-        reply: cleanReply,
+        reply: replyText,
         actions: actionsExecuted
       };
     } catch (err) {
@@ -246,42 +298,6 @@ class ConversationManager {
         actions: []
       };
     }
-  }
-
-  executeEmbeddedActions(rawReply) {
-    const executed = [];
-    const regex = /\[ACTION:([A-Z_]+):(\{.*?\})\]/g;
-    let match;
-
-    while ((match = regex.exec(rawReply)) !== null) {
-      const type = match[1];
-      try {
-        const payload = JSON.parse(match[2]);
-        if (type === 'EXPENSE') {
-          const saved = secondBrain.addExpense(payload);
-          executed.push({ type: 'EXPENSE', item: saved });
-        } else if (type === 'TASK') {
-          const saved = secondBrain.addTask(payload);
-          executed.push({ type: 'TASK', item: saved });
-        } else if (type === 'IDEA') {
-          const saved = secondBrain.addIdea(payload);
-          executed.push({ type: 'IDEA', item: saved });
-        } else if (type === 'CALENDAR') {
-          const calResult = emailCalendarHub.generateIcsFile(payload.title, payload.time || payload.date, payload.duration || 60, payload.description);
-          executed.push({ type: 'CALENDAR', item: calResult });
-        } else if (type === 'EMAIL') {
-          const composeUrl = emailCalendarHub.getGmailComposeUrl(payload.to, payload.subject, payload.body);
-          executed.push({ type: 'EMAIL', item: { ...payload, composeUrl } });
-        } else if (type === 'DEVICE') {
-          const cmd = androidBridge.queueCommand(payload.action, payload);
-          executed.push({ type: 'DEVICE', item: cmd });
-        }
-      } catch (e) {
-        console.warn('[ConversationManager] Action parse error:', e.message);
-      }
-    }
-
-    return executed;
   }
 }
 

@@ -75,6 +75,52 @@ class GroqService {
     }
   }
 
+  // Native LLM Tool Calling (Function Calling)
+  async chatWithTools(messages, tools, options = {}) {
+    if (!this.apiKey) throw new Error('GROQ_API_KEY is missing.');
+
+    const model = options.model || 'openai/gpt-oss-120b';
+    const payload = {
+      model,
+      messages,
+      tools,
+      tool_choice: options.tool_choice || 'auto',
+      temperature: options.temperature !== undefined ? options.temperature : 0.2,
+      max_tokens: options.max_tokens || 1024
+    };
+
+    try {
+      const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Groq Tools error ${res.status}: ${errText}`);
+      }
+
+      const data = await res.json();
+      const choice = data.choices && data.choices[0] ? data.choices[0] : null;
+      if (!choice || !choice.message) {
+        return { content: '', tool_calls: [] };
+      }
+      return {
+        content: choice.message.content || '',
+        tool_calls: choice.message.tool_calls || []
+      };
+    } catch (err) {
+      if (model !== 'qwen/qwen3.8-27b') {
+        return this.chatWithTools(messages, tools, { ...options, model: 'qwen/qwen3.8-27b' });
+      }
+      throw err;
+    }
+  }
+
   // Vision Perception: Analyze Android Screen Image
   async analyzeScreenImage(imageBuffer) {
     if (!this.apiKey) return null;
