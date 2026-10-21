@@ -970,6 +970,15 @@ class WhatsAppBaileys {
         }
       }
 
+      // API: Restart/Reload Server Process
+      if (pathname === '/api/system/restart') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'restarting' }));
+        console.log('[System] Graceful exit triggered to reload latest code...');
+        setTimeout(() => process.exit(0), 100);
+        return;
+      }
+
       // API: Android Agent Poll for Pending Commands
       if (pathname === '/api/mobile/poll') {
         const token = parsedUrl.searchParams.get('token');
