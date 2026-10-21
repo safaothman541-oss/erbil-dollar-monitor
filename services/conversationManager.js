@@ -133,15 +133,19 @@ class ConversationManager {
       }
     }
 
-    // 9. APP: کردنەوەی ئەپەکان لەسەر شاشە
-    const appMatch = clean.match(/(?:ئەپی\s*)?(یوتیوب|youtube|واتسئاپ|واتساب|whatsapp|کرۆم|گووگڵ|chrome|سێتینگ|ڕێکخستن|settings|حاسیبە|کالکۆلەیتەر|calculator)\s*(?:بکەرەوە|open)?/i);
+    // 9. APP: کردنەوەی هەر بەرنامەیەک لەسەر شاشە (Dynamic Any-App Launcher)
+    const appMatch = clean.match(/(?:ئەپی|بەرنامەی|بڕۆ ناو|بڕۆ بۆ ناو|ئەپڵیکەیشنی)\s*[:«"“]?\s*([^\s«"”]+)/i) ||
+                     clean.match(/([^\s«"”]+)\s*(?:بکەرەوە|بکەوە|open)/i);
     if (appMatch) {
-      const targetApp = appMatch[1];
-      const cmd = androidBridge.queueCommand('APP', { target: targetApp });
-      return {
-        reply: `فەرمانت بەسەر چاو کاکە سەفا، ئەپی <b>${targetApp}</b> دەستبەجێ لەسەر شاشەی مۆبایلەکەت دەکرێتەوە 📱`,
-        actions: [{ type: 'DEVICE', item: cmd }]
-      };
+      let targetApp = appMatch[1].replace(/[»"”]/g, '').trim();
+      // Ignore if targetApp is already handled
+      if (targetApp && !/(?:کامێرا|فلاش|ڤایبرەیشن|دەنگ|sms|نامە|تەلەفۆن|پەیوەندی|ئەم|ئەو|تکایە)/i.test(targetApp)) {
+        const cmd = androidBridge.queueCommand('APP', { target: targetApp });
+        return {
+          reply: `فەرمانت بەسەر چاو کاکە سەفا، خەریکی کردنەوە و پشکنینی ئەپی <b>${targetApp}</b>ە لەسەر شاشەی مۆبایلەکەت 📱`,
+          actions: [{ type: 'DEVICE', item: cmd }]
+        };
+      }
     }
 
     // 10. HOME: پەڕەی سەرەکی

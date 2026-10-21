@@ -1020,8 +1020,10 @@ class WhatsAppBaileys {
 
             if (resolved) {
               const telegramService = require('./telegramService');
+              const isOk = data.result && data.result.success !== false;
               const resMsg = data.result && data.result.message ? data.result.message : (data.result && data.result.output ? data.result.output : 'فەرمان جێبەجێ کرا');
-              await telegramService.sendMessage(`📲 <b>[مۆبایلی ئەندرۆید]:</b>\n${resMsg}`, { chatId: config.ADMIN_USER_ID });
+              const icon = isOk ? '✅' : '⚠️';
+              await telegramService.sendMessage(`${icon} <b>[مۆبایلی ئەندرۆید]:</b>\n${resMsg}`, { chatId: config.ADMIN_USER_ID });
             }
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
