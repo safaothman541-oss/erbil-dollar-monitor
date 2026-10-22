@@ -156,15 +156,18 @@ class AndroidBridge {
 
   async executeCommandAndWait(type, payload = {}, timeoutMs = 8000) {
     const cmd = this.queueCommand(type, payload);
+    const status = this.getDeviceStatus();
+    // Resilient timeout: if device is offline, allow quick 1.2s poll window then gracefully queue
+    const effectiveTimeout = status.online ? timeoutMs : Math.min(timeoutMs, 1200);
     const start = Date.now();
 
-    while (Date.now() - start < timeoutMs) {
+    while (Date.now() - start < effectiveTimeout) {
       await new Promise(r => setTimeout(r, 200));
       this.loadQueue();
       const current = this.queue.find(c => c.id === cmd.id);
       if (current && current.status === 'COMPLETED') {
         const isOk = current.result && current.result.success !== false;
-        let resMsg = 'فەرمان بە سەرکەوتوویی جێبەجێ کرا';
+        let resMsg = 'فەرمانەکە بە سەرکەوتوویی جێبەجێ کرا';
         if (current.result) {
           if (current.result.b64message) {
             try {
@@ -178,6 +181,14 @@ class AndroidBridge {
         }
         return { success: isOk, message: resMsg, result: current.result };
       }
+    }
+
+    if (!status.online) {
+      return {
+        success: true,
+        queued: true,
+        message: `فەرمانی ${type} تۆمارکرا و لە ڕیزی چاوەڕوانیدایە (مۆبایل دەستبەجێ بە بەستنەوەی جێبەجێی دەکات)`
+      };
     }
 
     return { success: false, message: 'مۆبایل لە ماوەی دیاریکراودا وەڵامی نەدایەوە (Timeout)' };

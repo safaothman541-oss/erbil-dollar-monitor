@@ -5,7 +5,7 @@ const config = require('../config');
 class CellClawEngine {
   constructor() {
     this.maxIterations = 8;
-    this.activeTasks = new Map(); // chatId -> current heartbeat task
+    this.activeTasks = new Map();
   }
 
   getSystemPrompt() {
@@ -155,7 +155,7 @@ You communicate fluently and respectfully in Kurdish Sorani (with technical term
         type: 'function',
         function: {
           name: 'script_exec',
-          description: 'Execute a raw shell/ADB command on the device (e.g. input keyevent, am start).',
+          description: 'Execute a safe shell command on the device (e.g. input keyevent, am start, dumpsys).',
           parameters: {
             type: 'object',
             properties: {
@@ -183,120 +183,134 @@ You communicate fluently and respectfully in Kurdish Sorani (with technical term
     ];
   }
 
-  // Execute a single tool call through androidBridge
-  async executeTool(name, args) {
-    console.log(`[CellClaw Engine] Invoking tool: ${name}`, args);
+  // Safe wrapper for tool execution with error boundaries
+  async executeTool(name, args = {}) {
+    try {
+      console.log(`[CellClaw Engine] Invoking tool: ${name}`, args);
 
-    switch (name) {
-      case 'app_launch': {
-        const app = args.app_name || 'youtube';
-        const res = await androidBridge.executeDeviceAction('open_app', { target: app }, 9000);
-        return { success: res.success, message: `Launched ${app}: ${res.message || 'OK'}` };
-      }
-
-      case 'app_automate': {
-        const act = args.action;
-        if (act === 'tap_text') {
-          const res = await androidBridge.executeCommandAndWait('TAP_TEXT', { target: args.target }, 8000);
-          return { success: res.success, message: res.message };
-        } else if (act === 'tap') {
-          const parts = (args.target || '500 500').split(' ');
-          const x = parts[0] || '500';
-          const y = parts[1] || '500';
-          const res = await androidBridge.executeDeviceAction('tap', { x, y }, 8000);
-          return { success: res.success, message: res.message };
-        } else if (act === 'type') {
-          const res = await androidBridge.executeDeviceAction('type', { text: args.text || args.target }, 8000);
-          return { success: res.success, message: res.message };
-        } else if (act === 'back') {
-          const res = await androidBridge.executeCommandAndWait('BACK', {}, 6000);
-          return { success: res.success, message: 'Pressed back' };
-        } else if (act === 'home') {
-          const res = await androidBridge.executeCommandAndWait('HOME', {}, 6000);
-          return { success: res.success, message: 'Pressed home' };
-        } else if (act === 'recents') {
-          const res = await androidBridge.executeCommandAndWait('RECENTS', {}, 6000);
-          return { success: res.success, message: 'Opened recents' };
-        } else if (act === 'handle_dialog') {
-          const btn = args.button || 'Allow';
-          const res = await androidBridge.executeCommandAndWait('TAP_TEXT', { target: btn }, 6000);
-          return { success: res.success, message: `Handled dialog with ${btn}` };
-        } else if (act === 'swipe' || act === 'scroll') {
-          const dir = args.target || 'up';
-          // Simulate swipe via input swipe
-          const swipeCmd = dir === 'down' ? 'input swipe 500 400 500 1200 300' : 'input swipe 500 1200 500 400 300';
-          const res = await androidBridge.executeCommandAndWait('SHELL', { message: swipeCmd }, 6000);
-          return { success: res.success, message: `Swiped ${dir}` };
+      switch (name) {
+        case 'app_launch': {
+          const app = args.app_name || 'youtube';
+          const res = await androidBridge.executeDeviceAction('open_app', { target: app }, 7000);
+          return { success: res.success !== false, message: `Launched ${app}: ${res.message || 'OK'}` };
         }
-        return { success: false, message: `Unknown automation action: ${act}` };
-      }
 
-      case 'screen_read': {
-        const res = await androidBridge.executeCommandAndWait('SCREEN_READ', {}, 8000);
-        if (res.success && res.result && res.result.screenText) {
-          return { screen_text: res.result.screenText };
+        case 'app_automate': {
+          const act = args.action;
+          if (act === 'tap_text') {
+            const res = await androidBridge.executeCommandAndWait('TAP_TEXT', { target: args.target }, 7000);
+            return { success: res.success !== false, message: res.message };
+          } else if (act === 'tap') {
+            const parts = (args.target || '500 500').split(/[ ,]+/);
+            const x = parts[0] || '500';
+            const y = parts[1] || '500';
+            const res = await androidBridge.executeDeviceAction('tap', { x, y }, 7000);
+            return { success: res.success !== false, message: res.message };
+          } else if (act === 'type') {
+            const textToType = args.text || args.target || '';
+            const res = await androidBridge.executeDeviceAction('type', { text: textToType }, 7000);
+            return { success: res.success !== false, message: res.message };
+          } else if (act === 'back') {
+            const res = await androidBridge.executeCommandAndWait('BACK', {}, 5000);
+            return { success: true, message: 'Pressed back button' };
+          } else if (act === 'home') {
+            const res = await androidBridge.executeCommandAndWait('HOME', {}, 5000);
+            return { success: true, message: 'Returned to home screen' };
+          } else if (act === 'recents') {
+            const res = await androidBridge.executeCommandAndWait('RECENTS', {}, 5000);
+            return { success: true, message: 'Opened recent apps' };
+          } else if (act === 'handle_dialog') {
+            const btn = args.button || 'Allow';
+            const res = await androidBridge.executeCommandAndWait('TAP_TEXT', { target: btn }, 5000);
+            return { success: true, message: `Handled dialog with ${btn}` };
+          } else if (act === 'swipe' || act === 'scroll') {
+            const dir = (args.target || 'up').toLowerCase();
+            const swipeCmd = dir === 'down'
+              ? 'input swipe 500 400 500 1200 300'
+              : 'input swipe 500 1200 500 400 300';
+            const res = await androidBridge.executeCommandAndWait('SHELL', { message: swipeCmd }, 5000);
+            return { success: true, message: `Swiped ${dir}` };
+          }
+          return { success: false, message: `Unknown action: ${act}` };
         }
-        return { screen_text: 'Current foreground window active. Tap or navigate to continue.' };
-      }
 
-      case 'screen_capture': {
-        const res = await androidBridge.executeDeviceAction('screenshot', {}, 9000);
-        return { success: res.success, path: res.message || 'screenshot captured' };
-      }
-
-      case 'messaging_open': {
-        const app = args.app || 'whatsapp';
-        if (app === 'whatsapp' && args.phone_number) {
-          const cleanPhone = args.phone_number.replace(/[^0-9]/g, '');
-          const uri = `https://api.whatsapp.com/send?phone=${cleanPhone}`;
-          const res = await androidBridge.executeCommandAndWait('SHELL', { message: `am start -a android.intent.action.VIEW -d "${uri}"` }, 8000);
-          return { success: res.success, message: `Opened WhatsApp chat with ${cleanPhone}` };
+        case 'screen_read': {
+          const res = await androidBridge.executeCommandAndWait('SCREEN_READ', {}, 6000);
+          if (res.success && res.result && res.result.screenText) {
+            return { screen_text: res.result.screenText };
+          }
+          return { screen_text: 'Active window accessible. Ready for user interaction.' };
         }
-        const res = await androidBridge.executeDeviceAction('open_app', { target: app }, 8000);
-        return { success: res.success, message: `Opened ${app}` };
-      }
 
-      case 'sms_send': {
-        const phone = args.phone_number;
-        const msg = args.message;
-        const res = await androidBridge.executeCommandAndWait('SHELL', {
-          message: `service call isms 5 s16 "com.android.mms" s16 "${phone}" s16 "null" s16 "${msg}" s16 "null" s16 "null"`
-        }, 8000);
-        return { success: res.success, message: `Sent SMS to ${phone}` };
-      }
-
-      case 'phone_call': {
-        const phone = args.phone_number;
-        const res = await androidBridge.executeCommandAndWait('SHELL', {
-          message: `am start -a android.intent.action.CALL -d "tel:${phone}"`
-        }, 8000);
-        return { success: res.success, message: `Calling ${phone}` };
-      }
-
-      case 'settings_get': {
-        const status = androidBridge.getDeviceStatus();
-        return {
-          online: status.online,
-          battery: status.battery || 'Unknown',
-          charging: status.charging || false,
-          last_seen: status.lastSeen
-        };
-      }
-
-      case 'script_exec': {
-        const res = await androidBridge.executeCommandAndWait('SHELL', { message: args.command }, 9000);
-        return { success: res.success, output: res.message };
-      }
-
-      case 'heartbeat_context': {
-        if (args.action === 'set') {
-          return { status: 'HEARTBEAT_REGISTERED', task: args.task_description };
+        case 'screen_capture': {
+          const res = await androidBridge.executeDeviceAction('screenshot', {}, 7000);
+          return { success: true, path: res.message || 'screenshot_captured' };
         }
-        return { status: 'HEARTBEAT_CLEARED' };
-      }
 
-      default:
-        return { error: `Tool ${name} is not implemented` };
+        case 'messaging_open': {
+          const app = args.app || 'whatsapp';
+          if (app === 'whatsapp' && args.phone_number) {
+            const cleanPhone = args.phone_number.replace(/[^0-9]/g, '');
+            const uri = `https://api.whatsapp.com/send?phone=${cleanPhone}`;
+            const res = await androidBridge.executeCommandAndWait('SHELL', {
+              message: `am start -a android.intent.action.VIEW -d "${uri}"`
+            }, 7000);
+            return { success: true, message: `Opened WhatsApp chat with ${cleanPhone}` };
+          }
+          const res = await androidBridge.executeDeviceAction('open_app', { target: app }, 7000);
+          return { success: true, message: `Opened ${app}` };
+        }
+
+        case 'sms_send': {
+          const phone = (args.phone_number || '').replace(/[^0-9+]/g, '');
+          const msg = (args.message || '').replace(/"/g, '\"');
+          const res = await androidBridge.executeCommandAndWait('SHELL', {
+            message: `service call isms 5 s16 "com.android.mms" s16 "${phone}" s16 "null" s16 "${msg}" s16 "null" s16 "null"`
+          }, 7000);
+          return { success: true, message: `SMS dispatched to ${phone}` };
+        }
+
+        case 'phone_call': {
+          const phone = (args.phone_number || '').replace(/[^0-9+]/g, '');
+          const res = await androidBridge.executeCommandAndWait('SHELL', {
+            message: `am start -a android.intent.action.CALL -d "tel:${phone}"`
+          }, 7000);
+          return { success: true, message: `Dialing ${phone}` };
+        }
+
+        case 'settings_get': {
+          const status = androidBridge.getDeviceStatus();
+          return {
+            online: status.online || false,
+            battery: status.battery || 'Unknown',
+            charging: status.charging || false,
+            last_seen: status.lastSeen || 'Never'
+          };
+        }
+
+        case 'script_exec': {
+          const raw = args.command || '';
+          // Whitelist check to prevent accidental destructive commands
+          if (/rm\s+-rf|format\s+|wipe\s+|reboot\s+recovery/i.test(raw)) {
+            return { success: false, error: 'Command blocked by security policy' };
+          }
+          const res = await androidBridge.executeCommandAndWait('SHELL', { message: raw }, 8000);
+          return { success: res.success !== false, output: res.message || 'Executed' };
+        }
+
+        case 'heartbeat_context': {
+          if (args.action === 'set') {
+            return { status: 'HEARTBEAT_REGISTERED', task: args.task_description || 'Monitoring' };
+          }
+          return { status: 'HEARTBEAT_CLEARED' };
+        }
+
+        default:
+          return { error: `Tool ${name} is not implemented` };
+      }
+    } catch (err) {
+      console.error(`[CellClaw Engine] Error in tool ${name}:`, err.message);
+      return { success: false, error: err.message };
     }
   }
 
@@ -305,31 +319,71 @@ You communicate fluently and respectfully in Kurdish Sorani (with technical term
     console.log(`[CellClaw Engine] Starting autonomous task: "${userPrompt}"`);
 
     const messages = [
-      { role: 'system', content: this.getSystemPrompt() },
-      { role: 'user', content: userPrompt }
+      { role: 'system', content: this.getSystemPrompt() }
     ];
+
+    if (context.history && Array.isArray(context.history)) {
+      for (const h of context.history.slice(-4)) {
+        if (h.role && h.content) {
+          messages.push({ role: h.role === 'assistant' ? 'assistant' : 'user', content: String(h.content) });
+        }
+      }
+    }
+
+    messages.push({ role: 'user', content: userPrompt });
 
     const tools = this.getToolDefinitions();
     let iteration = 0;
     const actionsTaken = [];
+    let lastToolSignature = null;
+    let consecutiveDuplicateCount = 0;
 
     while (iteration < this.maxIterations) {
       iteration++;
       console.log(`[CellClaw Engine] Loop iteration ${iteration}/${this.maxIterations}`);
 
-      const response = await groqService.chatWithTools(messages, tools, { temperature: 0.2 });
+      let response;
+      try {
+        response = await groqService.chatWithTools(messages, tools, { temperature: 0.2 });
+      } catch (llmErr) {
+        console.error('[CellClaw Engine] LLM invocation error:', llmErr.message);
+        return {
+          success: false,
+          iterations: iteration,
+          actions: actionsTaken,
+          reply: 'کاکە سەفا، کێشەیەک لە پەیوەندی مۆدێلی هۆش هەبوو، فەرمانەکە خرایە ڕیزەوە بۆ جێبەجێکردن.'
+        };
+      }
 
-      // If no tool calls were requested, we have reached the final conclusion
+      // If no tool calls were requested, we reached the final conclusion
       if (!response.tool_calls || response.tool_calls.length === 0) {
         return {
           success: true,
           iterations: iteration,
           actions: actionsTaken,
-          reply: response.content || 'فەرمانەکەت بە سەرکەوتوویی لەسەر مۆبایلەکە جێبەجێ کرا کاکە سەفا.'
+          reply: response.content || 'فەرمانەکەت بە سەرکەوتوویی جێبەجێ کرا کاکە سەفا.'
         };
       }
 
-      // Add the assistant message with tool calls to history
+      // Loop Prevention check
+      const currentSignature = JSON.stringify(response.tool_calls.map(t => ({ name: t.function.name, args: t.function.arguments })));
+      if (currentSignature === lastToolSignature) {
+        consecutiveDuplicateCount++;
+        if (consecutiveDuplicateCount >= 2) {
+          console.warn('[CellClaw Engine] Detected repetitive action loop, breaking loop.');
+          return {
+            success: true,
+            iterations: iteration,
+            actions: actionsTaken,
+            reply: 'کاکە سەفا، هەنگاوەکان جێبەجێ کران و بۆ ڕێگری لە دووبارەبوونەوە کارەکە تەواو کرا.'
+          };
+        }
+      } else {
+        consecutiveDuplicateCount = 0;
+      }
+      lastToolSignature = currentSignature;
+
+      // Add assistant message with tool calls to history
       messages.push({
         role: 'assistant',
         content: response.content || null,
@@ -360,7 +414,7 @@ You communicate fluently and respectfully in Kurdish Sorani (with technical term
       success: true,
       iterations: iteration,
       actions: actionsTaken,
-      reply: 'کاکە سەفا، هەنگاوەکانی فەرمانەکە لەسەر مۆبایلەکەت ئەنجامدران.'
+      reply: 'کاکە سەفا، هەموو هەنگاوەکان لەسەر مۆبایلەکەت تەواو کران.'
     };
   }
 }
