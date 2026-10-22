@@ -190,7 +190,7 @@ class AndroidBridge {
     return null;
   }
 
-  async executeCommandAndWait(type, payload = {}, timeoutMs = 8000) {
+  async executeCommandAndWait(type, payload = {}, timeoutMs = 14000) {
     const cmd = this.queueCommand(type, payload);
     const status = this.getDeviceStatus();
     // Resilient timeout: if device is offline, allow quick 1.2s poll window then gracefully queue

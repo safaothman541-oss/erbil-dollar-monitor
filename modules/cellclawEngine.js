@@ -388,27 +388,12 @@ You communicate fluently and respectfully in Kurdish Sorani (with technical term
 
     const cleanPrompt = (userPrompt || '').toLowerCase().trim();
 
-    // Fast-path 1: Flashlight / Torch ON
-    if (cleanPrompt.includes('فلاش') && (cleanPrompt.includes('هەڵکە') || cleanPrompt.includes('داگیرسێنە') || cleanPrompt.includes('on') || cleanPrompt.includes('رووناک'))) {
-      const res = await this.executeTool('torch_control', { state: 'on' });
-      if (res.success) {
-        return {
-          success: true,
-          iterations: 1,
-          actions: [{ tool: 'torch_control', args: { state: 'on' }, result: res }],
-          reply: 'فەرمانت بەسەر چاو کاکە سەفا، فلاشی مۆبایلەکەت بە سەرکەوتوویی لەسەر مۆبایل داگیرسا 🔦✨'
-        };
-      }
-      return {
-        success: false,
-        iterations: 1,
-        actions: [{ tool: 'torch_control', args: { state: 'on' }, result: res }],
-        reply: `کاکە سەفا، فەرمانی فلاش نێردرا بەڵام لە مۆبایلەکەتەوە وەڵامی سەرکەوتن نەگەڕایەوە (${res.message})`
-      };
-    }
+    // Fast-path 1: Flashlight / Torch OFF (Handles: بیکوژێنەوە, بکوژێنەوە, داخە, فلاشی مۆبایلەکەم داخە, etc.)
+    const isTorchOff = 
+      /ب[ەی]?کوژ[ێی]نەوە|داخە|بیداخە|کوژانەوە|کوژاندنەوە/.test(cleanPrompt) ||
+      ((cleanPrompt.includes('فلاش') || cleanPrompt.includes('لایت')) && /off|کوژ|داخ/.test(cleanPrompt));
 
-    // Fast-path 2: Flashlight / Torch OFF
-    if (cleanPrompt.includes('فلاش') && (cleanPrompt.includes('بکوژێنەوە') || cleanPrompt.includes('off') || cleanPrompt.includes('بکوژینەوە') || cleanPrompt.includes('کوژانەوە'))) {
+    if (isTorchOff) {
       const res = await this.executeTool('torch_control', { state: 'off' });
       if (res.success) {
         return {
@@ -422,7 +407,30 @@ You communicate fluently and respectfully in Kurdish Sorani (with technical term
         success: false,
         iterations: 1,
         actions: [{ tool: 'torch_control', args: { state: 'off' }, result: res }],
-        reply: `کاکە سەفا، فەرمانی کوژاندنەوەی فلاش نێردرا بەڵام لە مۆبایلەکەتەوە وەڵامی سەرکەوتن نەگەڕایەوە (${res.message})`
+        reply: `کاکە سەفا، فەرمانی کوژاندنەوەی فلاش نێردرا بەڵام لە مۆبایلەکەتەوە وەڵامی سەرکەوتن نەگەڕایەوە (${res.message}).`
+      };
+    }
+
+    // Fast-path 2: Flashlight / Torch ON (Handles: فلاشەکە پێبکە, فلاش هەڵکە, پێی بکە, لایتی مۆبایل, etc.)
+    const isTorchOn = 
+      (cleanPrompt.includes('فلاش') || cleanPrompt.includes('لایت')) &&
+      /پێ\s*بکە|پێی\s*بکە|هەڵ\s*کە|هەڵیکە|داگیرسێن|رووناک|on|بکەرەوە/.test(cleanPrompt);
+
+    if (isTorchOn) {
+      const res = await this.executeTool('torch_control', { state: 'on' });
+      if (res.success) {
+        return {
+          success: true,
+          iterations: 1,
+          actions: [{ tool: 'torch_control', args: { state: 'on' }, result: res }],
+          reply: 'فەرمانت بەسەر چاو کاکە سەفا، فلاشی مۆبایلەکەت داگیرسا 🔦✨'
+        };
+      }
+      return {
+        success: false,
+        iterations: 1,
+        actions: [{ tool: 'torch_control', args: { state: 'on' }, result: res }],
+        reply: `کاکە سەفا، فەرمانی داگیرساندنی فلاش نێردرا بەڵام لە مۆبایلەکەتەوە وەڵامی سەرکەوتن نەگەڕایەوە (${res.message}).`
       };
     }
 
