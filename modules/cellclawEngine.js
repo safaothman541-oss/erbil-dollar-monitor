@@ -15,20 +15,23 @@ You communicate fluently and respectfully in Kurdish Sorani (with technical term
 
 ## MANDATORY DIRECTIVES: ALWAYS INVOKE TOOLS
 1. Action-First: NEVER say you did something without calling the actual tool. You MUST make tool calls to affect the real phone!
+   - If Safa asks to turn on/off the flashlight / torch (فلاش، لایتی مۆبایل): CALL torch_control with state="on" or state="off".
+   - If Safa asks to wait / pause (دوو چرکە بە، بۆ ماوەیەک بوەستە): CALL wait_delay with seconds=number.
    - If Safa asks to open Gallery / Photos (گەلەری، وێنەکان): CALL app_launch with app_name="gallery".
    - If Safa asks to open Camera (کامێرا): CALL app_launch with app_name="camera".
+   - If Safa asks to open Telegram / return to chat (تێلیگرام، سەرچاتی خۆمان): CALL app_launch with app_name="telegram".
    - If Safa asks to open YouTube (یوتیوب): CALL app_launch with app_name="youtube".
-   - If Safa asks to open WhatsApp / Telegram (واتسئەپ، تێلیگرام): CALL messaging_open.
+   - If Safa asks to open WhatsApp (واتسئەپ): CALL messaging_open with app="whatsapp".
    - If Safa asks about battery or phone status (پاتری، شەحن، دۆخی مۆبایل): CALL settings_get.
    - If Safa asks to go home / back / click something: CALL app_automate.
-2. Multi-step Autonomous Loop:
-   - To interact with any app: 1) app_launch, 2) screen_read to inspect visible UI nodes, 3) app_automate to tap, type, swipe, or scroll.
-3. System Dialog Handling:
-   - If a permission dialog blocks the screen ("Allow", "Deny"), use app_automate with action="handle_dialog" and button="Allow".
-4. Error Recovery & Loop Avoidance:
-   - If an action hits an ad, paywall, or failure, NEVER repeat the identical action. Use action="back" or action="swipe".
-5. Executive Tone:
-   - Respectful, executive Kurdish Sorani ("کاکە سەفا", "فەرمانەکەت بە سەرکەوتوویی جێبەجێکرا", etc.).`;
+2. Multi-step Sequential Tasks:
+   - If Safa asks a sequence (e.g. "برۆ گەلەری و دوو چرکە بمێنەوە و وەرەوە سەرچات"):
+     1. app_launch(app_name="gallery")
+     2. wait_delay(seconds=2)
+     3. app_launch(app_name="telegram")
+3. Executive Tone & Truthfulness:
+   - Only confirm completion if the physical device verified the action.
+   - Respectful, executive Kurdish Sorani ("کاکە سەفا", etc.).`;
   }
 
   getToolDefinitions() {
@@ -36,8 +39,43 @@ You communicate fluently and respectfully in Kurdish Sorani (with technical term
       {
         type: 'function',
         function: {
+          name: 'torch_control',
+          description: 'Turn the phone flashlight/torch ON or OFF (لایتی مۆبایل، فلاش).',
+          parameters: {
+            type: 'object',
+            properties: {
+              state: {
+                type: 'string',
+                enum: ['on', 'off'],
+                description: 'Flashlight state: on or off'
+              }
+            },
+            required: ['state']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'wait_delay',
+          description: 'Pause or wait for a specific duration in seconds on the phone.',
+          parameters: {
+            type: 'object',
+            properties: {
+              seconds: {
+                type: 'number',
+                description: 'Number of seconds to wait (e.g. 2, 5)'
+              }
+            },
+            required: ['seconds']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
           name: 'app_launch',
-          description: 'Launch an installed Android app by name or package name (e.g. youtube, whatsapp, telegram, settings, chrome, camera).',
+          description: 'Launch an installed Android app by name or package name (e.g. gallery, camera, telegram, youtube, whatsapp, settings, chrome).',
           parameters: {
             type: 'object',
             properties: {
@@ -194,23 +232,34 @@ You communicate fluently and respectfully in Kurdish Sorani (with technical term
       console.log(`[CellClaw Engine] Invoking tool: ${name}`, args);
 
       switch (name) {
+        case 'torch_control': {
+          const state = (args.state || 'on').toLowerCase().trim();
+          const res = await androidBridge.executeCommandAndWait('TORCH', { target: state }, 8000);
+          return { success: res.success !== false, message: res.message || `Torch ${state}` };
+        }
+
+        case 'wait_delay': {
+          const secs = Number(args.seconds) || 2;
+          const res = await androidBridge.executeCommandAndWait('DELAY', { target: String(secs) }, (secs * 1000) + 4000);
+          return { success: res.success !== false, message: res.message || `Waited ${secs} seconds` };
+        }
+
         case 'app_launch': {
           const raw = (args.app_name || 'youtube').toLowerCase().trim();
           if (raw.includes('gallery') || raw.includes('photo') || raw.includes('گەلەری') || raw.includes('وێنە')) {
-            const res = await androidBridge.executeCommandAndWait('SHELL', {
-              message: 'am start -a android.intent.action.VIEW -t "image/*"'
-            }, 7000);
-            return { success: true, message: 'گەلەری و وێنەکان لەسەر مۆبایلەکەت کرانەوە' };
+            const res = await androidBridge.executeCommandAndWait('APP', { target: 'gallery' }, 8000);
+            return { success: res.success !== false, message: res.message || 'گەلەری کرایەوە' };
           } else if (raw.includes('camera') || raw.includes('کامێرا')) {
-            const res = await androidBridge.executeCommandAndWait('SHELL', {
-              message: 'am start -a android.media.action.IMAGE_CAPTURE'
-            }, 7000);
-            return { success: true, message: 'کامێرا کرایەوە' };
+            const res = await androidBridge.executeCommandAndWait('APP', { target: 'camera' }, 8000);
+            return { success: res.success !== false, message: res.message || 'کامێرا کرایەوە' };
+          } else if (raw.includes('telegram') || raw.includes('تێلیگرام') || raw.includes('تیلیگرام') || raw.includes('سەرچات')) {
+            const res = await androidBridge.executeCommandAndWait('APP', { target: 'telegram' }, 8000);
+            return { success: res.success !== false, message: res.message || 'تێلیگرام کرایەوە' };
           } else if (raw.includes('youtube') || raw.includes('یوتیوب')) {
-            const res = await androidBridge.executeDeviceAction('open_app', { target: 'youtube' }, 7000);
-            return { success: true, message: 'یوتیوب کرایەوە' };
+            const res = await androidBridge.executeDeviceAction('open_app', { target: 'youtube' }, 8000);
+            return { success: res.success !== false, message: res.message || 'یوتیوب کرایەوە' };
           }
-          const res = await androidBridge.executeDeviceAction('open_app', { target: raw }, 7000);
+          const res = await androidBridge.executeDeviceAction('open_app', { target: raw }, 8000);
           return { success: res.success !== false, message: `Launched ${raw}: ${res.message || 'OK'}` };
         }
 
@@ -230,25 +279,25 @@ You communicate fluently and respectfully in Kurdish Sorani (with technical term
             const res = await androidBridge.executeDeviceAction('type', { text: textToType }, 7000);
             return { success: res.success !== false, message: res.message };
           } else if (act === 'back') {
-            const res = await androidBridge.executeCommandAndWait('BACK', {}, 5000);
-            return { success: true, message: 'Pressed back button' };
+            const res = await androidBridge.executeCommandAndWait('BACK', {}, 6000);
+            return { success: res.success !== false, message: res.message || 'گەڕانەوە بۆ دواوە' };
           } else if (act === 'home') {
-            const res = await androidBridge.executeCommandAndWait('HOME', {}, 5000);
-            return { success: true, message: 'Returned to home screen' };
+            const res = await androidBridge.executeCommandAndWait('HOME', {}, 6000);
+            return { success: res.success !== false, message: res.message || 'گەڕانەوە بۆ پەڕەی سەرەکی' };
           } else if (act === 'recents') {
-            const res = await androidBridge.executeCommandAndWait('RECENTS', {}, 5000);
-            return { success: true, message: 'Opened recent apps' };
+            const res = await androidBridge.executeCommandAndWait('RECENTS', {}, 6000);
+            return { success: res.success !== false, message: res.message || 'ئەپەکانی پێشوو' };
           } else if (act === 'handle_dialog') {
             const btn = args.button || 'Allow';
             const res = await androidBridge.executeCommandAndWait('TAP_TEXT', { target: btn }, 5000);
-            return { success: true, message: `Handled dialog with ${btn}` };
+            return { success: res.success !== false, message: `Handled dialog with ${btn}` };
           } else if (act === 'swipe' || act === 'scroll') {
             const dir = (args.target || 'up').toLowerCase();
             const swipeCmd = dir === 'down'
               ? 'input swipe 500 400 500 1200 300'
               : 'input swipe 500 1200 500 400 300';
             const res = await androidBridge.executeCommandAndWait('SHELL', { message: swipeCmd }, 5000);
-            return { success: true, message: `Swiped ${dir}` };
+            return { success: res.success !== false, message: `Swiped ${dir}` };
           }
           return { success: false, message: `Unknown action: ${act}` };
         }
@@ -337,6 +386,46 @@ You communicate fluently and respectfully in Kurdish Sorani (with technical term
   async runTask(userPrompt, context = {}) {
     console.log(`[CellClaw Engine] Starting autonomous task: "${userPrompt}"`);
 
+    const cleanPrompt = (userPrompt || '').toLowerCase().trim();
+
+    // Fast-path 1: Flashlight / Torch ON
+    if (cleanPrompt.includes('فلاش') && (cleanPrompt.includes('هەڵکە') || cleanPrompt.includes('داگیرسێنە') || cleanPrompt.includes('on') || cleanPrompt.includes('رووناک'))) {
+      const res = await this.executeTool('torch_control', { state: 'on' });
+      if (res.success) {
+        return {
+          success: true,
+          iterations: 1,
+          actions: [{ tool: 'torch_control', args: { state: 'on' }, result: res }],
+          reply: 'فەرمانت بەسەر چاو کاکە سەفا، فلاشی مۆبایلەکەت بە سەرکەوتوویی لەسەر مۆبایل داگیرسا 🔦✨'
+        };
+      }
+      return {
+        success: false,
+        iterations: 1,
+        actions: [{ tool: 'torch_control', args: { state: 'on' }, result: res }],
+        reply: `کاکە سەفا، فەرمانی فلاش نێردرا بەڵام لە مۆبایلەکەتەوە وەڵامی سەرکەوتن نەگەڕایەوە (${res.message})`
+      };
+    }
+
+    // Fast-path 2: Flashlight / Torch OFF
+    if (cleanPrompt.includes('فلاش') && (cleanPrompt.includes('بکوژێنەوە') || cleanPrompt.includes('off') || cleanPrompt.includes('بکوژینەوە') || cleanPrompt.includes('کوژانەوە'))) {
+      const res = await this.executeTool('torch_control', { state: 'off' });
+      if (res.success) {
+        return {
+          success: true,
+          iterations: 1,
+          actions: [{ tool: 'torch_control', args: { state: 'off' }, result: res }],
+          reply: 'کاکە سەفا، فلاشی مۆبایلەکەت کوژایەوە 🔦❌'
+        };
+      }
+      return {
+        success: false,
+        iterations: 1,
+        actions: [{ tool: 'torch_control', args: { state: 'off' }, result: res }],
+        reply: `کاکە سەفا، فەرمانی کوژاندنەوەی فلاش نێردرا بەڵام لە مۆبایلەکەتەوە وەڵامی سەرکەوتن نەگەڕایەوە (${res.message})`
+      };
+    }
+
     const messages = [
       { role: 'system', content: this.getSystemPrompt() }
     ];
@@ -366,16 +455,37 @@ You communicate fluently and respectfully in Kurdish Sorani (with technical term
         response = await groqService.chatWithTools(messages, tools, { temperature: 0.2 });
       } catch (llmErr) {
         console.error('[CellClaw Engine] LLM invocation error:', llmErr.message);
+        // Resilient fallback for common intents
+        if (cleanPrompt.includes('گەلەری') || cleanPrompt.includes('gallery')) {
+          const res = await this.executeTool('app_launch', { app_name: 'gallery' });
+          if (res.success) {
+            return {
+              success: true,
+              iterations: iteration,
+              actions: [{ tool: 'app_launch', args: { app_name: 'gallery' }, result: res }],
+              reply: 'کاکە سەفا، گەلەری وێنەکان لەسەر مۆبایلەکەت بە سەرکەوتوویی کرایەوە 🖼️📱'
+            };
+          }
+        }
         return {
           success: false,
           iterations: iteration,
           actions: actionsTaken,
-          reply: 'کاکە سەفا، کێشەیەک لە پەیوەندی مۆدێلی هۆش هەبوو، فەرمانەکە خرایە ڕیزەوە بۆ جێبەجێکردن.'
+          reply: `کاکە سەفا، کێشەیەک لە پەیوەندی مۆدێلی هۆش هەبوو (${llmErr.message})، هیچ کردارێکی هەڵە ئەنجام نەدرا.`
         };
       }
 
       // If no tool calls were requested, we reached the final conclusion
       if (!response.tool_calls || response.tool_calls.length === 0) {
+        const failedAction = actionsTaken.find(a => a.result && a.result.success === false);
+        if (failedAction) {
+          return {
+            success: false,
+            iterations: iteration,
+            actions: actionsTaken,
+            reply: `کاکە سەفا، هەنگاوی ${failedAction.tool} نێردرا بەڵام لە مۆبایلەکەتەوە وەڵامی سەرکەوتن نەگەڕایەوە (${failedAction.result.message || 'وەڵام نەبوو'}). تکایە دڵنیابە ئەپی SafaDroid کراوەیە.`
+          };
+        }
         return {
           success: true,
           iterations: iteration,
@@ -417,9 +527,8 @@ You communicate fluently and respectfully in Kurdish Sorani (with technical term
           fnArgs = JSON.parse(tc.function.arguments || '{}');
         } catch (_) {}
 
-        actionsTaken.push({ tool: fnName, args: fnArgs });
-
         const result = await this.executeTool(fnName, fnArgs);
+        actionsTaken.push({ tool: fnName, args: fnArgs, result });
 
         messages.push({
           role: 'tool',
@@ -427,6 +536,16 @@ You communicate fluently and respectfully in Kurdish Sorani (with technical term
           content: JSON.stringify(result)
         });
       }
+    }
+
+    const failedAction = actionsTaken.find(a => a.result && a.result.success === false);
+    if (failedAction) {
+      return {
+        success: false,
+        iterations: iteration,
+        actions: actionsTaken,
+        reply: `کاکە سەفا، هەنگاوەکان نێردران بەڵام لە مۆبایلەکەتەوە وەڵامی تەواوبوون نەگەڕایەوە (${failedAction.result.message || 'نادیار'}).`
+      };
     }
 
     return {

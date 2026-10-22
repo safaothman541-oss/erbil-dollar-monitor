@@ -2,8 +2,11 @@ package com.safa.os.droid
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.Context
 import android.content.Intent
 import android.graphics.Path
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -18,6 +21,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 class SafaAccessibilityService : AccessibilityService() {
 
@@ -137,6 +141,10 @@ class SafaAccessibilityService : AccessibilityService() {
                                 success = openUniversalCamera()
                                 feedback = if (success) "ئەپی کامێرا کرایەوە 📸" else "نەتوانرا کامێرا بکرێتەوە"
                             }
+                            lower.contains("telegram") || lower.contains("تێلیگرام") || lower.contains("تیلیگرام") || lower.contains("سەرچات") -> {
+                                success = launchApp("org.telegram.messenger")
+                                feedback = if (success) "گەڕایەوە سەر چاتی تێلیگرام 💬📱" else "ئەپی تێلیگرام نەدۆزرایەوە"
+                            }
                             lower.contains("calc") || lower.contains("حاسیبە") -> {
                                 success = openUniversalCalculator()
                                 feedback = if (success) "ئەپی حاسیبە کرایەوە 🔢" else "نەتوانرا حاسیبە بکرێتەوە"
@@ -231,14 +239,48 @@ class SafaAccessibilityService : AccessibilityService() {
                         }
                     }
 
+                    "TORCH", "FLASHLIGHT" -> {
+                        val enable = !target.contains("off", ignoreCase = true) &&
+                                     !message.contains("off", ignoreCase = true) &&
+                                     !target.contains("بکوژێنەوە") &&
+                                     !message.contains("بکوژێنەوە")
+                        success = setTorchMode(enable)
+                        feedback = if (success) {
+                            if (enable) "فلاشی مۆبایلەکە بە سەرکەوتوویی داگیرسا 🔦✨" else "فلاشی مۆبایلەکە کوژایەوە 🔦❌"
+                        } else {
+                            "کێشەیەک لە داگیرساندنی فلاشدا ڕوویدا"
+                        }
+                    }
+
+                    "DELAY", "WAIT" -> {
+                        val secs = (target.toLongOrNull() ?: message.toLongOrNull() ?: 2L).coerceIn(1, 30)
+                        delay(secs * 1000L)
+                        success = true
+                        feedback = "چاوەڕوانی بۆ ماوەی $secs چرکە تەواو بوو ⏱️"
+                    }
+
                     "SHELL" -> {
-                        if (message.contains("youtube", ignoreCase = true)) {
-                            val q = extractQuery(message)
+                        val cmdStr = if (message.isNotBlank()) message else target
+                        if (cmdStr.contains("youtube", ignoreCase = true)) {
+                            val q = extractQuery(cmdStr)
                             success = playYouTube(q)
                             feedback = "یوتیوب بە فەرمانی شێڵ کرایەوە: $q 🎵"
+                        } else if (cmdStr.contains("image/*") || cmdStr.contains("gallery") || cmdStr.contains("وێنە")) {
+                            success = openUniversalGallery()
+                            feedback = if (success) "گەلەری وێنەکان کرایەوە 🖼️" else "گەلەری نەکرایەوە"
+                        } else if (cmdStr.contains("telegram", ignoreCase = true)) {
+                            success = launchApp("org.telegram.messenger")
+                            feedback = if (success) "تێلیگرام کرایەوە 💬" else "تێلیگرام نەکرایەوە"
                         } else {
-                            success = true
-                            feedback = "فەرمانی شێڵ ڕەچاو کرا"
+                            try {
+                                val proc = Runtime.getRuntime().exec(arrayOf("sh", "-c", cmdStr))
+                                proc.waitFor(3, TimeUnit.SECONDS)
+                                success = true
+                                feedback = "فەرمانی شێڵ ئەنجامدرا"
+                            } catch (e: Exception) {
+                                success = false
+                                feedback = "هەڵە لە فەرمانی شێڵ: ${e.message}"
+                            }
                         }
                     }
 
@@ -474,6 +516,23 @@ class SafaAccessibilityService : AccessibilityService() {
         }
     }
 
+    private fun setTorchMode(enable: Boolean): Boolean {
+        return try {
+            val cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            val cameraId = cameraManager.cameraIdList.firstOrNull { id ->
+                try {
+                    val characteristics = cameraManager.getCameraCharacteristics(id)
+                    characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+                } catch (_: Exception) { false }
+            } ?: cameraManager.cameraIdList.firstOrNull() ?: "0"
+            cameraManager.setTorchMode(cameraId, enable)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to toggle torch: ${e.message}")
+            false
+        }
+    }
+
     private fun reportResult(cmdId: String, success: Boolean, message: String, serverUsed: String) {
         serviceScope.launch {
             try {
@@ -488,12 +547,19 @@ class SafaAccessibilityService : AccessibilityService() {
                 }
 
                 val body = jsonPayload.toString().toRequestBody("application/json".toMediaType())
-                val request = Request.Builder()
-                    .url("$serverUsed/api/mobile/result")
-                    .post(body)
-                    .build()
-
-                client.newCall(request).execute().close()
+                
+                // Broadcast to both Zoho Catalyst and AlwaysData for 100% redundancy
+                listOf(catalystUrl, alwaysdataUrl).forEach { url ->
+                    try {
+                        val request = Request.Builder()
+                            .url("$url/api/mobile/result")
+                            .post(body)
+                            .build()
+                        client.newCall(request).execute().close()
+                    } catch (netErr: Exception) {
+                        Log.w(TAG, "Sync report to $url failed: ${netErr.message}")
+                    }
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to report result: ${e.message}")
             }

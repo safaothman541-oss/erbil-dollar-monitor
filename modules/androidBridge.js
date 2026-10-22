@@ -200,7 +200,22 @@ class AndroidBridge {
     while (Date.now() - start < effectiveTimeout) {
       await new Promise(r => setTimeout(r, 200));
       this.loadQueue();
-      const current = this.queue.find(c => c.id === cmd.id);
+      let current = this.queue.find(c => c.id === cmd.id);
+
+      // Also check Catalyst cloud status if not resolved locally yet
+      if ((!current || current.status !== 'COMPLETED') && (Date.now() - start) > 1200) {
+        try {
+          const catRes = await fetch(`https://project-rainfall-943399015.development.catalystserverless.com/server/vertexwebhook/api/mobile/status?token=safa_droid_secret_2026&cmdId=${cmd.id}`, { signal: AbortSignal.timeout(1000) });
+          if (catRes.ok) {
+            const catData = await catRes.json();
+            if (catData && catData.status === 'COMPLETED') {
+              this.resolveCommand(cmd.id, catData.result || { success: true });
+              current = this.queue.find(c => c.id === cmd.id);
+            }
+          }
+        } catch (_) {}
+      }
+
       if (current && current.status === 'COMPLETED') {
         const isOk = current.result && current.result.success !== false;
         let resMsg = 'فەرمانەکە بە سەرکەوتوویی جێبەجێ کرا';
@@ -221,9 +236,9 @@ class AndroidBridge {
 
     if (!status.online) {
       return {
-        success: true,
+        success: false,
         queued: true,
-        message: `فەرمانی ${type} تۆمارکرا و لە ڕیزی چاوەڕوانیدایە (مۆبایل دەستبەجێ بە بەستنەوەی جێبەجێی دەکات)`
+        message: `مۆبایل لەم ساتەدا بەردەست نییە، فەرمانی ${type} خرایە ڕیزەوە تا ئەوکاتەی پەیوەست دەبێتەوە`
       };
     }
 
