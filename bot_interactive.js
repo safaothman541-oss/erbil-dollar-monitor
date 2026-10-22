@@ -381,7 +381,7 @@ async function handleSafaVoice(msg) {
 }
 
 async function handleSafaSmartText(text, chatId) {
-  await telegramService.sendMessage('🧠 <i>سەرۆکی دیوان (Safa OS) خەریکی تاوتوێکردن و ئامادەکردنی وەڵامە...</i>', { chatId });
+  // Thinking message suppressed for clean instant responses
 
   try {
     const { reply, actions } = await conversationManager.chat(text);
@@ -1286,6 +1286,21 @@ global.processTelegramUpdate = async function(update) {
   }
 };
 
+const TG_OFFSET_FILE = path.join(__dirname, 'state', 'tg_offset.json');
+let lastUpdateId = 0;
+try {
+  if (fs.existsSync(TG_OFFSET_FILE)) {
+    lastUpdateId = JSON.parse(fs.readFileSync(TG_OFFSET_FILE, 'utf8')).lastUpdateId || 0;
+  }
+} catch (_) {}
+
+function saveLastUpdateId(id) {
+  lastUpdateId = id;
+  try {
+    fs.writeFileSync(TG_OFFSET_FILE, JSON.stringify({ lastUpdateId: id }), 'utf8');
+  } catch (_) {}
+}
+
 async function runPollingLoop() {
   try { await telegramService.deleteWebhook(); console.log("Telegram Webhook cleared, polling active."); } catch (_) {}
   while (isPollingActive) {
@@ -1293,7 +1308,7 @@ async function runPollingLoop() {
       const updates = await telegramService.getUpdates(lastUpdateId + 1, 15);
       if (Array.isArray(updates)) {
         for (const update of updates) {
-          lastUpdateId = update.update_id;
+          saveLastUpdateId(update.update_id);
 
           if (update.callback_query) {
             await handleCallback(update.callback_query).catch(e => console.error('Callback error:', e.message));
@@ -1329,10 +1344,14 @@ async function start() {
     msg += `• بۆ حیسابکردنی قازانج و دۆزینەوەی نرخی فرۆشتنی گونجاو بەپێی نرخی بازاڕی ئێستای دۆلار.\n`;
     msg += `• دەتوانیت کلیک لەسەر یەکێک لە کاڵاکانی خوارەوە بکەیت یان تەنها نرخی کڕین یان ناوی کاڵا بنووسیت:`;
 
-    await telegramService.sendMessage(msg, {
-      threadId: config.TOPICS.CALCULATOR,
-      replyMarkup: getCalculatorKeyboard()
-    });
+    const CALC_FLAG = path.join(__dirname, 'state', 'calc_posted.flag');
+    if (!fs.existsSync(CALC_FLAG)) {
+      await telegramService.sendMessage(msg, {
+        threadId: config.TOPICS.CALCULATOR,
+        replyMarkup: getCalculatorKeyboard()
+      });
+      try { fs.writeFileSync(CALC_FLAG, new Date().toISOString(), 'utf8'); } catch (_) {}
+    }
     console.log('Interactive calculator menu posted to Topic 5.');
   } catch (e) {
     console.error('Failed to post initial menu:', e.message);

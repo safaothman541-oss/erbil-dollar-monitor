@@ -1109,24 +1109,7 @@ class WhatsAppBaileys {
             const resolved = androidBridge.resolveCommand(data.cmdId, data.result);
 
             if (resolved) {
-              const telegramService = require('./telegramService');
-              const isOk = data.result && data.result.success !== false;
-              let resMsg = 'فەرمان جێبەجێ کرا';
-              if (data.result) {
-                if (data.result.b64message) {
-                  try {
-                    resMsg = Buffer.from(data.result.b64message, 'base64').toString('utf8');
-                  } catch (_) {
-                    resMsg = data.result.message || 'فەرمان جێبەجێ کرا';
-                  }
-                } else if (data.result.message) {
-                  resMsg = data.result.message;
-                } else if (data.result.output) {
-                  resMsg = data.result.output;
-                }
-              }
-              const icon = isOk ? '✅' : '⚠️';
-              await telegramService.sendMessage(`${icon} <b>[مۆبایلی ئەندرۆید]:</b>\n${resMsg}`, { chatId: config.ADMIN_USER_ID });
+              console.log([Android Bridge] Command  resolved on cloud.);
             }
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
