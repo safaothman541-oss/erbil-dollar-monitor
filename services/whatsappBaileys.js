@@ -1013,6 +1013,21 @@ class WhatsAppBaileys {
         }
       }
 
+      // Public APK Download Endpoint
+      if (pathname === '/CellClaw.apk' || pathname === '/SafaDroid.apk') {
+        const apkFile = path.join(__dirname, '..', 'public', 'CellClaw.apk');
+        if (fs.existsSync(apkFile)) {
+          const stat = fs.statSync(apkFile);
+          res.writeHead(200, {
+            'Content-Type': 'application/vnd.android.package-archive',
+            'Content-Length': stat.size,
+            'Content-Disposition': 'attachment; filename="CellClaw.apk"'
+          });
+          fs.createReadStream(apkFile).pipe(res);
+          return;
+        }
+      }
+
       // API: Restart/Reload Server Process
       if (pathname === '/api/system/restart') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
