@@ -12,6 +12,32 @@ if (process.env.RENDER || process.env.RAILWAY_ENVIRONMENT) {
   return;
 }
 
+// Single-instance PID Lock Guard (Prevents 409 getUpdates conflicts on AlwaysData/Linux)
+const fs = require('fs');
+const path = require('path');
+const PID_FILE = path.join(__dirname, 'state', 'telegram_bot.pid');
+
+try {
+  if (fs.existsSync(PID_FILE)) {
+    const existingPid = parseInt(fs.readFileSync(PID_FILE, 'utf8'), 10);
+    if (existingPid && existingPid !== process.pid) {
+      try {
+        process.kill(existingPid, 0);
+        console.warn(`[Telegram Bot] Master instance already running with PID ${existingPid}. Exiting to prevent conflict.`);
+        process.exit(0);
+      } catch (_) {
+        // Stale lock file
+      }
+    }
+  }
+  const stateDir = path.dirname(PID_FILE);
+  if (!fs.existsSync(stateDir)) fs.mkdirSync(stateDir, { recursive: true });
+  fs.writeFileSync(PID_FILE, String(process.pid), 'utf8');
+  process.on('exit', () => {
+    try { if (fs.existsSync(PID_FILE) && fs.readFileSync(PID_FILE, 'utf8') === String(process.pid)) fs.unlinkSync(PID_FILE); } catch (_) {}
+  });
+} catch (_) {}
+
 const config = require('./config');
 const telegramService = require('./services/telegramService');
 const zohoService = require('./services/zohoService');
