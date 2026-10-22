@@ -171,13 +171,8 @@ class DailyOutreach {
   generateKurdishOutreachMessage(lead) {
     const shopName = lead.name && lead.name !== 'مارکێت / شوێنی بەڕێز' ? lead.name : 'مارکێت و دوکانی بەڕێزتان';
 
-    const greetings = [
-      `سڵاو و ڕێز لە بەڕێوەبەر و ستافی بەڕێزی ${shopName} 🌸\nهیوادارین کار و کاسبیتان هەمیشە پڕ لە بەرەکەت و لە گەشەی بەردەوامدا بێت.`,
-      `سڵاوێکی گەرم و پڕ لە ڕێز بۆ بەڕێوەبەر و کارمەندانی خۆشەویستی ${shopName} 💐\nهیوای سەرکەوتن و ڕۆژێکی پڕ لە خێر و بەرەکەتتان بۆ دەخوازین.`,
-      `بەڕێز بەڕێوەبەر و ستافی خۆشەویستی ${shopName}، سڵاو و ڕێزتان لێبێت 🌟\nهیوادارین کار و کاسبیتان هەمیشە لە گەشە و بەردەوامیدا بێت.`
-    ];
-    const pickGreeting = greetings[Math.floor(Math.random() * greetings.length)];
-    let msg = `${pickGreeting}\n\n`;
+    let msg = `سڵاو و ڕێز لە بەڕێوەبەر و ستافی بەڕێزی ${shopName} 🌸\n`;
+    msg += `هیوادارین کار و کاسبیتان هەمیشە پڕ لە بەرەکەت و لە گەشەی بەردەوامدا بێت.\n\n`;
 
     msg += `ئێمە لە کۆمپانیای ڤێرتێکس (VERTEX) وەکو هاوبەش و دابینکەری سەرەکی کەرەستە و سیستەمی کاشێر و مارکێت لە هەولێر، پەیوەندیتان پێوە دەکەین تا بە بەرزترین کوالێتی و گونجاوترین نرخ لە خزمەتتاندا بین:\n\n`;
 
@@ -211,7 +206,7 @@ class DailyOutreach {
 
 
   // Pre-screen and prepare tomorrow's 100 targets (Called at 10:00 PM nightly or via Telegram command)
-  async prepareNightlyQueue(targetCount = 100) {
+  async prepareNightlyQueue(targetCount = 25) {
     if (!whatsappBaileys.isConnected) {
       console.log('[DailyOutreach] WhatsApp not currently marked connected during nightly queue prep. Waiting up to 30s...');
       for (let attempt = 0; attempt < 10; attempt++) {
@@ -472,7 +467,7 @@ class DailyOutreach {
   // Generate full readable text file of queue for download
   generateQueueTextFile() {
     const filePath = path.join(config.STATE_DIR, 'outreach_targets_tomorrow.txt');
-    let text = `لیستی ١٠٠ شوێنی ئامادەکراو لە هەولێر (ڕیزبەندکراو بەپێی نزیکی لە قەڵات)\n`;
+    let text = `لیستی ٢٥ شوێنی ئامادەکراو لە هەولێر (ڕیزبەندکراو بەپێی نزیکی لە قەڵات)\n`;
     text += `بەروار: ${this.queue.date || 'سبەینێ'} | دۆخ: ${this.queue.status}\n`;
     text += `سیستەمی پاراستن: بێ ژمارەی دووبارە (Zero Duplicate Guaranteed)\n`;
     text += `========================================================\n\n`;
@@ -519,7 +514,7 @@ class DailyOutreach {
     // If queue is empty or from a past date, prepare now
     if (!this.queue.items || this.queue.items.length === 0) {
       console.log('[DailyOutreach] Queue was empty, preparing queue now...');
-      await this.prepareNightlyQueue(100);
+      await this.prepareNightlyQueue(25);
     }
 
     if (this.queue.status === 'paused' && !forced) {
@@ -540,8 +535,8 @@ class DailyOutreach {
 
     let enabledItems = (this.queue.items || []).filter(i => i.enabled && i.status === 'pending');
     if (enabledItems.length === 0) {
-      console.log('[DailyOutreach] No pending enabled items in queue. Preparing fresh queue of 100 now...');
-      await this.prepareNightlyQueue(100);
+      console.log('[DailyOutreach] No pending enabled items in queue. Preparing fresh queue of 25 now...');
+      await this.prepareNightlyQueue(25);
       enabledItems = (this.queue.items || []).filter(i => i.enabled && i.status === 'pending');
     }
 

@@ -321,7 +321,7 @@ async function handleCallback(cb) {
       await dailyOutreach.postQueueToTelegram(chatId, threadId);
     } else if (action === 'refresh') {
       await telegramService.sendMessage('🔄 <b>دەستکرا بە پشکنینەوەی ١٠٠ دانەی نوێ...</b>', { chatId, threadId });
-      await dailyOutreach.prepareNightlyQueue(100);
+      await dailyOutreach.prepareNightlyQueue(25);
     } else if (action === 'start_now') {
       await telegramService.sendMessage('🚀 <b>دەستکرا بە ناردنی نامەکان هەر ئێستا...</b>', { chatId, threadId });
       dailyOutreach.executeMorningOutreach(true).catch(console.error);
@@ -870,7 +870,7 @@ async function handleMessage(msg) {
   if (text.startsWith('/queue') || text.startsWith('/outreach')) {
     if (text.startsWith('/outreach_prepare') || text.startsWith('/prepare_queue')) {
       await telegramService.sendMessage('🔍 <b>دەستکرا بە پشکنینی واتسئاپ و ئامادەکردنی ١٠٠ مارکێت بۆ سبەینێ...</b>\nتکایە کەمێک چاوەڕوان بە.', { chatId, threadId });
-      await dailyOutreach.prepareNightlyQueue(100);
+      await dailyOutreach.prepareNightlyQueue(25);
       return;
     }
 
@@ -1242,7 +1242,7 @@ async function backgroundCycle() {
     // 7. Nightly Pre-Screening & Queue Preparation check (10:00 PM to 11:59 PM Baghdad time - Resilient Auto-Retry)
     if (baghdadHour >= 22 && baghdadHour <= 23 && lastNightlyQueueDate !== todayDateStr) {
       console.log(`[Background] Checking/Triggering nightly WhatsApp pre-screening (${baghdadHour}:${String(baghdadMinute).padStart(2, '0')} Baghdad)...`);
-      dailyOutreach.prepareNightlyQueue(100).then(res => {
+      dailyOutreach.prepareNightlyQueue(25).then(res => {
         if (res && res.status === 'prepared') {
           console.log(`[Background] ✅ Nightly queue prepared successfully for ${res.targetDate}!`);
           lastNightlyQueueDate = todayDateStr;
