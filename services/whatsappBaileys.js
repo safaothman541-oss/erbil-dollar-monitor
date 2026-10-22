@@ -1144,7 +1144,7 @@ class WhatsAppBaileys {
             const resolved = androidBridge.resolveCommand(data.cmdId, data.result);
 
             if (resolved) {
-              console.log([Android Bridge] Command  resolved on cloud.);
+              console.log(`[Android Bridge] Command ${data.cmdId} resolved on cloud.`);
             }
 
             res.writeHead(200, { 'Content-Type': 'application/json' });

@@ -1287,7 +1287,6 @@ global.processTelegramUpdate = async function(update) {
 };
 
 const TG_OFFSET_FILE = path.join(__dirname, 'state', 'tg_offset.json');
-let lastUpdateId = 0;
 try {
   if (fs.existsSync(TG_OFFSET_FILE)) {
     lastUpdateId = JSON.parse(fs.readFileSync(TG_OFFSET_FILE, 'utf8')).lastUpdateId || 0;
