@@ -59,18 +59,31 @@ class AndroidBridge {
     return { online: false, lastSeen: null, secondsAgo: null };
   }
 
-    async mirrorToAlwaysData(type, payload) {
+  async mirrorToDualCloud(type, payload) {
+    const bodyStr = JSON.stringify({
+      token: 'safa_droid_secret_2026',
+      type,
+      payload
+    });
+
+    // 1. Mirror to Zoho Catalyst Enterprise
     try {
-      await fetch('https://safaothman.alwaysdata.net/api/mobile/queue', {
+      fetch('https://project-rainfall-943399015.development.catalystserverless.com/server/vertexwebhook/api/mobile/queue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: 'safa_droid_secret_2026',
-          type,
-          payload
-        }),
-        signal: AbortSignal.timeout(4000)
-      });
+        body: bodyStr,
+        signal: AbortSignal.timeout(3500)
+      }).catch(() => {});
+    } catch (_) {}
+
+    // 2. Mirror to AlwaysData Cloud
+    try {
+      fetch('https://safaothman.alwaysdata.net/api/mobile/queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: bodyStr,
+        signal: AbortSignal.timeout(3500)
+      }).catch(() => {});
     } catch (_) {}
   }
 
@@ -140,7 +153,7 @@ class AndroidBridge {
     };
     this.queue.push(cmd);
     this.saveQueue();
-    if (!process.env.ALWAYSDATA) { this.mirrorToAlwaysData(effectiveType, cleanPayload).catch(() => {}); }
+    this.mirrorToDualCloud(effectiveType, cleanPayload).catch(() => {});
     return cmd;
   }
 
