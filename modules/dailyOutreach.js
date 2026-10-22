@@ -171,8 +171,13 @@ class DailyOutreach {
   generateKurdishOutreachMessage(lead) {
     const shopName = lead.name && lead.name !== 'مارکێت / شوێنی بەڕێز' ? lead.name : 'مارکێت و دوکانی بەڕێزتان';
 
-    let msg = `سڵاو و ڕێز لە بەڕێوەبەر و ستافی بەڕێزی ${shopName} 🌸\n`;
-    msg += `هیوادارین کار و کاسبیتان هەمیشە پڕ لە بەرەکەت و لە گەشەی بەردەوامدا بێت.\n\n`;
+    const greetings = [
+      `سڵاو و ڕێز لە بەڕێوەبەر و ستافی بەڕێزی ${shopName} 🌸\nهیوادارین کار و کاسبیتان هەمیشە پڕ لە بەرەکەت و لە گەشەی بەردەوامدا بێت.`,
+      `سڵاوێکی گەرم و پڕ لە ڕێز بۆ بەڕێوەبەر و کارمەندانی خۆشەویستی ${shopName} 💐\nهیوای سەرکەوتن و ڕۆژێکی پڕ لە خێر و بەرەکەتتان بۆ دەخوازین.`,
+      `بەڕێز بەڕێوەبەر و ستافی خۆشەویستی ${shopName}، سڵاو و ڕێزتان لێبێت 🌟\nهیوادارین کار و کاسبیتان هەمیشە لە گەشە و بەردەوامیدا بێت.`
+    ];
+    const pickGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+    let msg = `${pickGreeting}\n\n`;
 
     msg += `ئێمە لە کۆمپانیای ڤێرتێکس (VERTEX) وەکو هاوبەش و دابینکەری سەرەکی کەرەستە و سیستەمی کاشێر و مارکێت لە هەولێر، پەیوەندیتان پێوە دەکەین تا بە بەرزترین کوالێتی و گونجاوترین نرخ لە خزمەتتاندا بین:\n\n`;
 
@@ -665,11 +670,19 @@ class DailyOutreach {
         this.saveQueue();
       }
 
-      // Natural delay (25-45 seconds)
+      // Natural delay (30-50 seconds)
       if (i < enabledItems.length - 1) {
-        const delaySec = Math.floor(Math.random() * 20) + 25;
-        console.log(`[DailyOutreach] ⏳ Anti-ban delay: waiting ${delaySec}s...`);
-        await new Promise(r => setTimeout(r, delaySec * 1000));
+        // Chunk rest cooldown every 20 messages to prevent Meta anti-spam unpairing
+        if (sentCount % 20 === 0 && sentCount > 0) {
+          console.log(`[DailyOutreach] ☕ Completed chunk of 20 messages (${sentCount} total). Taking 10-minute rest cooldown to keep session 100% human-safe...`);
+          try { await whatsappBaileys.sock?.sendPresenceUpdate("available"); } catch(e){}
+          await new Promise(r => setTimeout(r, 600 * 1000)); // 10 minutes
+          console.log(`[DailyOutreach] 🟢 Cooldown complete. Resuming next chunk.`);
+        } else {
+          const delaySec = Math.floor(Math.random() * 20) + 30;
+          console.log(`[DailyOutreach] ⏳ Anti-ban delay: waiting ${delaySec}s...`);
+          await new Promise(r => setTimeout(r, delaySec * 1000));
+        }
       }
     }
 

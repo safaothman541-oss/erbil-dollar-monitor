@@ -144,20 +144,41 @@ class WhatsAppBaileys {
           }
           setTimeout(() => this.connectToWhatsApp(), delay);
         } else {
-          console.log('[Baileys] Logged out. Cleaning auth state for new QR scan...');
-          fs.rmSync(this.authDir, { recursive: true, force: true });
-          setTimeout(() => this.connectToWhatsApp(), 2000);
+          console.warn(`[Baileys] Received loggedOut / close (${statusCode}). Attempting grace reconnection before auth wipe...`);
+          if (!this.graceReconnectTried) {
+            this.graceReconnectTried = true;
+            console.log('[Baileys] Retrying once with existing multi-file auth credentials...');
+            setTimeout(() => this.connectToWhatsApp(), 5000);
+          } else {
+            console.log('[Baileys] Logged out permanently. Cleaning auth state for new QR scan...');
+            this.graceReconnectTried = false;
+            try {
+              fs.rmSync(this.authDir, { recursive: true, force: true });
+            } catch (e) {}
+            setTimeout(() => this.connectToWhatsApp(), 2000);
+          }
         }
       } else if (connection === 'open') {
         this.isConnected = true;
+        this.graceReconnectTried = false;
         this.currentQr = null;
         this.currentQrDataUrl = null;
         this.connectedUser = this.sock.user;
         console.log('\n============================================================');
         console.log(`🎉 [Baileys] سێرڤەری واتسئاپ بە سەرکەوتوویی پەیوەست بوو!`);
-        console.log(`📱 ژمارەی بەستراوە: ${this.connectedUser.id.split(':')[0]}`);
+        console.log(`📱 ژمارەی بەستراوە: ${this.connectedUser?.id?.split(':')[0] || 'Unknown'}`);
         console.log('🤖 بۆتەکە ۲٤ کاتژمێر چالاکە و وەڵامی هەموو کڕیارێک دەداتەوە.');
         console.log('============================================================\n');
+
+        // Setup 24/7 keepalive presence ping every 3 minutes
+        if (this.keepAliveTimer) clearInterval(this.keepAliveTimer);
+        this.keepAliveTimer = setInterval(async () => {
+          if (this.isConnected && this.sock) {
+            try {
+              await this.sock.sendPresenceUpdate('available');
+            } catch (e) {}
+          }
+        }, 180000);
 
         // Automatically configure WhatsApp Business profile and identity
         this.setupBusinessProfile().catch(err => {
@@ -832,13 +853,27 @@ class WhatsAppBaileys {
     return null;
   }
 
-  // Send message directly to any phone number
-  async sendText(to, text) {
+  // Send message directly to any phone number with human presence simulation
+  async sendText(to, text, options = {}) {
     if (!this.isConnected || !this.sock) {
       throw new Error('WhatsApp bot is not connected yet.');
     }
     const cleanTo = this.cleanPhone(to);
     const remoteJid = cleanTo.includes('@s.whatsapp.net') ? cleanTo : `${cleanTo}@s.whatsapp.net`;
+
+    // Simulate human presence and typing
+    if (!options.skipPresence) {
+      try {
+        await this.sock.presenceSubscribe(remoteJid);
+        await this.sock.sendPresenceUpdate('composing', remoteJid);
+        const typingMs = Math.floor(Math.random() * 2000) + 2000; // 2 to 4 seconds typing
+        await new Promise(r => setTimeout(r, typingMs));
+        await this.sock.sendPresenceUpdate('paused', remoteJid);
+      } catch (e) {
+        // Non-fatal presence update error
+      }
+    }
+
     return this.sock.sendMessage(remoteJid, { text });
   }
 
