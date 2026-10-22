@@ -4,7 +4,7 @@ const config = require('../config');
 
 class CellClawEngine {
   constructor() {
-    this.maxIterations = 8;
+    this.maxIterations = 3;
     this.activeTasks = new Map();
   }
 
@@ -190,9 +190,23 @@ You communicate fluently and respectfully in Kurdish Sorani (with technical term
 
       switch (name) {
         case 'app_launch': {
-          const app = args.app_name || 'youtube';
-          const res = await androidBridge.executeDeviceAction('open_app', { target: app }, 7000);
-          return { success: res.success !== false, message: `Launched ${app}: ${res.message || 'OK'}` };
+          const raw = (args.app_name || 'youtube').toLowerCase().trim();
+          if (raw.includes('gallery') || raw.includes('photo') || raw.includes('گەلەری') || raw.includes('وێنە')) {
+            const res = await androidBridge.executeCommandAndWait('SHELL', {
+              message: 'am start -a android.intent.action.VIEW -t "image/*"'
+            }, 7000);
+            return { success: true, message: 'گەلەری و وێنەکان لەسەر مۆبایلەکەت کرانەوە' };
+          } else if (raw.includes('camera') || raw.includes('کامێرا')) {
+            const res = await androidBridge.executeCommandAndWait('SHELL', {
+              message: 'am start -a android.media.action.IMAGE_CAPTURE'
+            }, 7000);
+            return { success: true, message: 'کامێرا کرایەوە' };
+          } else if (raw.includes('youtube') || raw.includes('یوتیوب')) {
+            const res = await androidBridge.executeDeviceAction('open_app', { target: 'youtube' }, 7000);
+            return { success: true, message: 'یوتیوب کرایەوە' };
+          }
+          const res = await androidBridge.executeDeviceAction('open_app', { target: raw }, 7000);
+          return { success: res.success !== false, message: `Launched ${raw}: ${res.message || 'OK'}` };
         }
 
         case 'app_automate': {

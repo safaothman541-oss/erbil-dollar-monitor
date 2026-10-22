@@ -1022,6 +1022,29 @@ class WhatsAppBaileys {
         return;
       }
 
+      // API: Android Agent Enqueue Command (Cloud Bridge)
+      if (pathname === '/api/mobile/queue' && req.method === 'POST') {
+        let body = '';
+        req.on('data', c => body += c);
+        req.on('end', () => {
+          try {
+            const data = JSON.parse(body || '{}');
+            if (data.token !== 'safa_droid_secret_2026') {
+              res.writeHead(401, { 'Content-Type': 'application/json' });
+              return res.end(JSON.stringify({ error: 'Unauthorized' }));
+            }
+            const androidBridge = require('../modules/androidBridge');
+            const queued = androidBridge.queueCommand(data.type, data.payload || data);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({ success: true, command: queued }));
+          } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({ error: e.message }));
+          }
+        });
+        return;
+      }
+
       // API: Android Agent Poll for Pending Commands
       if (pathname === '/api/mobile/poll') {
         const token = parsedUrl.searchParams.get('token');

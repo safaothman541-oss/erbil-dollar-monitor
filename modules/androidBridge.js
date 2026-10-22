@@ -59,6 +59,21 @@ class AndroidBridge {
     return { online: false, lastSeen: null, secondsAgo: null };
   }
 
+    async mirrorToAlwaysData(type, payload) {
+    try {
+      await fetch('https://safaothman.alwaysdata.net/api/mobile/queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: 'safa_droid_secret_2026',
+          type,
+          payload
+        }),
+        signal: AbortSignal.timeout(4000)
+      });
+    } catch (_) {}
+  }
+
   queueCommand(type, payload = {}) {
     this.loadQueue();
     // Auto-expire commands older than 3 minutes to keep the queue clean
@@ -125,6 +140,7 @@ class AndroidBridge {
     };
     this.queue.push(cmd);
     this.saveQueue();
+    if (!process.env.ALWAYSDATA) { this.mirrorToAlwaysData(effectiveType, cleanPayload).catch(() => {}); }
     return cmd;
   }
 

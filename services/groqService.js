@@ -38,7 +38,7 @@ class GroqService {
   async fastChat(messages, options = {}) {
     if (!this.apiKey) throw new Error('GROQ_API_KEY is missing.');
 
-    const model = options.model || 'llama-3.3-70b-versatile';
+    const model = options.model || 'openai/gpt-oss-120b';
     const payload = {
       model,
       messages,
@@ -67,9 +67,9 @@ class GroqService {
         ? data.choices[0].message.content
         : '';
     } catch (err) {
-      // Fallback to qwen/qwen3.8-27b if 120b fails
-      if (model !== 'qwen/qwen3.8-27b') {
-        return this.fastChat(messages, { ...options, model: 'qwen/qwen3.8-27b' });
+      // Fallback to openai/gpt-oss-20b if 120b fails
+      if (model !== 'openai/gpt-oss-20b') {
+        return this.fastChat(messages, { ...options, model: 'openai/gpt-oss-20b' });
       }
       throw err;
     }
@@ -79,7 +79,7 @@ class GroqService {
   async chatWithTools(messages, tools, options = {}) {
     if (!this.apiKey) throw new Error('GROQ_API_KEY is missing.');
 
-    const model = options.model || 'llama-3.3-70b-versatile';
+    const model = options.model || 'openai/gpt-oss-120b';
     const payload = {
       model,
       messages,
@@ -114,8 +114,8 @@ class GroqService {
         tool_calls: choice.message.tool_calls || []
       };
     } catch (err) {
-      if (model !== 'qwen/qwen3.8-27b') {
-        return this.chatWithTools(messages, tools, { ...options, model: 'qwen/qwen3.8-27b' });
+      if (model !== 'openai/gpt-oss-20b') {
+        return this.chatWithTools(messages, tools, { ...options, model: 'openai/gpt-oss-20b' });
       }
       throw err;
     }
