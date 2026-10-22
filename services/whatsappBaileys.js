@@ -965,7 +965,28 @@ class WhatsAppBaileys {
         }
       }
 
-      // Serve SafaDroid Android Agent script directly for 1-command install
+      // API: Telegram Webhook Receiver (Eliminates 409 getUpdates polling conflict 24/7)
+      if (pathname === '/api/telegram/webhook' && req.method === 'POST') {
+        let body = '';
+        req.on('data', c => body += c);
+        req.on('end', async () => {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+          try {
+            if (body) {
+              const update = JSON.parse(body);
+              if (global.processTelegramUpdate) {
+                await global.processTelegramUpdate(update);
+              }
+            }
+          } catch (e) {
+            console.error('[Telegram Webhook] Error:', e.message);
+          }
+        });
+        return;
+      }
+
+      // API: SafaDroid Android Agent script directly for 1-command install
       if (pathname === '/safa-droid.js') {
         const agentPath = path.join(__dirname, '..', 'safa-droid', 'agent.js');
         if (fs.existsSync(agentPath)) {

@@ -134,40 +134,19 @@ class CodeActAgent {
     });
   }
 
-  // Run the autonomous agent loop using Gemini 2.0 Flash or Fallback
+  // Run the autonomous agent loop using CellClaw Engine (Vertex SRE Architecture)
   async run(userGoal, conversationHistory = []) {
-    const systemPrompt = `تۆ بریکاری سەربەخۆی کۆد، ڕیزنینگ و کۆنتڕۆڵی مۆبایلی لە سیستەمی Safa OS (Autonomous Code-Act & OpenRing UI Agent).
-خاوەنی سیستەمەکە کاکە سەفایە (ئەندازیاری ICT لە هەولێر).
-تۆ فێری هیچ یاسایەکی دیاریکراو نەکراویت. تۆ تەواوی مێشک و ژیری خۆت بەکاردێنیت و بە بیرکردنەوە و لێکدانەوەی خۆت (Autonomous Reasoning) فەرمانەکان جێبەجێ دەکەیت:
-
-ئەم سێ توانایەت لە بەردەستە:
-١. execute_phone_ui_action(action, target, message): کۆنتڕۆڵی ڕاستەوخۆ و فەرمیی مۆبایلی کاکە سەفا دەکات لە ڕێگەی ئەپی SafaDroid (OpenRing Accessibility Engine):
-   - action: 'APP' (بۆ کردنەوەی ئەپ وەک youtube, whatsapp, telegram, chrome...)
-   - action: 'YOUTUBE' (بۆ لێدانی ڕاستەوخۆی گۆرانی و ڤیدیۆ لە یوتیوب، لە target ناوی گۆرانییەکە بنووسە)
-   - action: 'TAP_TEXT' (بۆ کلیک کردن لەسەر هەر نووسینێک لەسەر شاشە)
-   - action: 'TAP' (بۆ کلیک لەسەر خاڵی شاشە x y)
-   - action: 'TYPE' (بۆ نووسینی دەق لە ناو فۆکەسی شاشە)
-   - action: 'HOME' (گەڕانەوە بۆ پەڕەی سەرەکی)
-   - action: 'BACK' (گەڕانەوە بۆ دواوە)
-   - action: 'RECENTS' (کردنەوەی ئەپە کراوەکان)
-   - action: 'NOTIFICATIONS' (داگرتنی پەردەی ئاگادارییەکان)
-٢. execute_phone_shell(command): فەرمانی خاوی ADB / Shell لەسەر مۆبایلی سەفا.
-٣. execute_server_shell(command): فەرمانی لینوکس/بەش لەسەر سێرڤەرەکەی سەفا (node, python3, curl, git...).
-
-یاساکانی کارکردنی سەربەخۆ:
-- کاتێک سەفا هەر فەرمانێک دەدات (کردنەوەی ئەپ، یوتیوب، کلیک لەسەر شاشە، فەرمانی سێرڤەر یان هەر کارێک):
-  ١. خۆت بیر بکەوە کامیان باشترینە و بە execute_phone_ui_action یان ئەوانی تر جێبەجێی بکە.
-  ٢. سەیری دەرئەنجام بکە، ئەگەر هەڵەیەک هەبوو، خۆت چاکی بکەرەوە.
-  ٣. لە کۆتاییدا بە زمانی کوردیی سۆرانیی کورت، بڕیاردەر و بەڕێز وەڵامی کاکە سەفا بدەرەوە.
-- هەرگیز درۆ مەکە؛ تەنیا کاتێک بڵێ کارەکە کرا کە بە چاوی خۆت بینی کۆماندەکە سەرکەوتووانە تەواو بوو.`;
-
-    // 1. If Gemini API Key is available, use Google Gemini 2.0 Flash natively
-    if (this.geminiApiKey) {
-      return this.runWithGemini(userGoal, systemPrompt, conversationHistory);
+    try {
+      const cellclawEngine = require("../modules/cellclawEngine");
+      const result = await cellclawEngine.runTask(userGoal, { history: conversationHistory });
+      return {
+        reply: result.reply,
+        actions: result.actions || []
+      };
+    } catch (err) {
+      console.warn("[CodeActAgent] CellClaw error:", err.message);
+      return this.runWithGroq(userGoal, "", conversationHistory);
     }
-
-    // 2. Otherwise fallback to Groq with native tool calling
-    return this.runWithGroq(userGoal, systemPrompt, conversationHistory);
   }
 
   // Implementation with Google Gemini 2.0 Flash Native REST API
