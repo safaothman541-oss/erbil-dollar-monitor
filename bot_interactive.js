@@ -1242,7 +1242,7 @@ async function backgroundCycle() {
   }
 }
 
-let isPollingActive = false; // Using Webhook by default to prevent 409 conflicts
+let isPollingActive = true; // Actively polling updates
 
 global.processTelegramUpdate = async function(update) {
   try {
@@ -1261,6 +1261,7 @@ global.processTelegramUpdate = async function(update) {
 };
 
 async function runPollingLoop() {
+  try { await telegramService.deleteWebhook(); console.log("Telegram Webhook cleared, polling active."); } catch (_) {}
   while (isPollingActive) {
     try {
       const updates = await telegramService.getUpdates(lastUpdateId + 1, 15);
