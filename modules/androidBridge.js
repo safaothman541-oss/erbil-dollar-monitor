@@ -147,14 +147,21 @@ class AndroidBridge {
   getPendingCommands() {
     this.loadQueue();
     const now = Date.now();
-    // Expire commands older than 2.5 minutes
+    // Expire commands older than 45 seconds to keep queue fresh
     this.queue.forEach(c => {
-      if (c.status === 'PENDING' && (now - new Date(c.createdAt).getTime()) > 150000) {
+      if (c.status === 'PENDING' && (now - new Date(c.createdAt).getTime()) > 45000) {
         c.status = 'EXPIRED';
       }
     });
+    const pending = this.queue.filter(c => c.status === 'PENDING');
+    // Flood prevention: if multiple pending, keep only the latest 1 and expire older ones
+    if (pending.length > 1) {
+      pending.slice(0, -1).forEach(c => c.status = 'EXPIRED');
+      this.saveQueue();
+      return [pending[pending.length - 1]];
+    }
     this.saveQueue();
-    return this.queue.filter(c => c.status === 'PENDING');
+    return pending;
   }
 
   resolveCommand(cmdId, result) {

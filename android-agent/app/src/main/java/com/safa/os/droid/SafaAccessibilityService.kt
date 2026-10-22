@@ -5,7 +5,9 @@ import android.accessibilityservice.GestureDescription
 import android.content.Intent
 import android.graphics.Path
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.util.Base64
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -20,7 +22,11 @@ import java.io.IOException
 class SafaAccessibilityService : AccessibilityService() {
 
     private val TAG = "SafaAccessibility"
-    private val serverUrl = "https://safaothman.alwaysdata.net"
+    // Dual Cloud Redundancy: Primary = Zoho Catalyst Enterprise, Fallback = AlwaysData
+    private val catalystUrl = "https://project-rainfall-943399015.development.catalystserverless.com/server/vertexwebhook"
+    private val alwaysdataUrl = "https://safaothman.alwaysdata.net"
+    private var activeServerUrl = catalystUrl
+
     private val token = "safa_droid_secret_2026"
     private val client = OkHttpClient()
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
@@ -53,9 +59,11 @@ class SafaAccessibilityService : AccessibilityService() {
 
         serviceScope.launch {
             while (isActive && isPolling) {
+                var foundCommands = false
+                // 1. Try Primary (Zoho Catalyst)
                 try {
                     val request = Request.Builder()
-                        .url("$serverUrl/api/mobile/poll?token=$token")
+                        .url("$catalystUrl/api/mobile/poll?token=$token")
                         .get()
                         .build()
 
@@ -63,19 +71,44 @@ class SafaAccessibilityService : AccessibilityService() {
                         if (response.isSuccessful) {
                             val bodyStr = response.body?.string() ?: ""
                             if (bodyStr.contains("\"commands\":[") && !bodyStr.contains("\"commands\":[]")) {
-                                handleServerResponse(bodyStr)
+                                activeServerUrl = catalystUrl
+                                handleServerResponse(bodyStr, catalystUrl)
+                                foundCommands = true
                             }
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Poll error: ${e.message}")
+                    Log.w(TAG, "Catalyst poll exception: ${e.message}")
                 }
-                delay(800) // 800ms poll interval
+
+                // 2. If nothing on Catalyst, poll Fallback (AlwaysData)
+                if (!foundCommands) {
+                    try {
+                        val request = Request.Builder()
+                            .url("$alwaysdataUrl/api/mobile/poll?token=$token")
+                            .get()
+                            .build()
+
+                        client.newCall(request).execute().use { response ->
+                            if (response.isSuccessful) {
+                                val bodyStr = response.body?.string() ?: ""
+                                if (bodyStr.contains("\"commands\":[") && !bodyStr.contains("\"commands\":[]")) {
+                                    activeServerUrl = alwaysdataUrl
+                                    handleServerResponse(bodyStr, alwaysdataUrl)
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Alwaysdata poll exception: ${e.message}")
+                    }
+                }
+
+                delay(800) // 800ms ultra-low latency poll interval
             }
         }
     }
 
-    private suspend fun handleServerResponse(jsonStr: String) {
+    private suspend fun handleServerResponse(jsonStr: String, serverUsed: String) {
         try {
             val json = JSONObject(jsonStr)
             val commands = json.optJSONArray("commands") ?: return
@@ -88,19 +121,45 @@ class SafaAccessibilityService : AccessibilityService() {
                 val target = cmd.optString("target")
                 val message = cmd.optString("message")
 
-                Log.d(TAG, "⚡ Executing command: $cmdType (target=$target, msg=$message)")
+                Log.d(TAG, "⚡ Executing command: $cmdType (target=$target, msg=$message) via $serverUsed")
                 var success = false
                 var feedback = ""
 
                 when (cmdType.uppercase()) {
                     "APP" -> {
-                        val pkg = resolvePackageName(target)
-                        success = launchApp(pkg)
-                        feedback = if (success) "ئەپی $target بە سەرکەوتوویی کرایەوە 📱" else "نەتوانرا ئەپی $target بکرێتەوە"
+                        val lower = target.lowercase().trim()
+                        when {
+                            lower.contains("gallery") || lower.contains("گەلەری") || lower.contains("photo") || lower.contains("وێنە") -> {
+                                success = openUniversalGallery()
+                                feedback = if (success) "گەلەری و وێنەکان بە سەرکەوتوویی کرانەوە 🖼️📱" else "نەتوانرا گەلەری بکرێتەوە"
+                            }
+                            lower.contains("camera") || lower.contains("کامێرا") -> {
+                                success = openUniversalCamera()
+                                feedback = if (success) "ئەپی کامێرا کرایەوە 📸" else "نەتوانرا کامێرا بکرێتەوە"
+                            }
+                            lower.contains("calc") || lower.contains("حاسیبە") -> {
+                                success = openUniversalCalculator()
+                                feedback = if (success) "ئەپی حاسیبە کرایەوە 🔢" else "نەتوانرا حاسیبە بکرێتەوە"
+                            }
+                            lower.contains("youtube") || lower.contains("یوتیوب") -> {
+                                val query = if (message.isNotBlank()) message else "gorani kurdi"
+                                success = playYouTube(query)
+                                feedback = "یوتیوب کرایەوە و گەڕان بۆ «$query» ئەنجامدرا 🎵📱"
+                            }
+                            lower.contains("browser") || lower.contains("براوسەر") || lower.contains("chrome") || lower.contains("کرۆم") -> {
+                                success = openUniversalBrowser(if (message.isNotBlank()) message else "https://google.com")
+                                feedback = "براوسەری ئینتەرنێت کرایەوە 🌐"
+                            }
+                            else -> {
+                                val pkg = resolvePackageName(target)
+                                success = launchApp(pkg)
+                                feedback = if (success) "ئەپی $target بە سەرکەوتوویی کرایەوە 📱" else "ئەپی $target لەسەر مۆبایل نەدۆزرایەوە"
+                            }
+                        }
                     }
 
                     "YOUTUBE_PLAY", "YOUTUBE" -> {
-                        val query = if (message.isNotBlank()) message else target
+                        val query = if (message.isNotBlank()) message else if (target.isNotBlank()) target else "gorani kurdi"
                         success = playYouTube(query)
                         feedback = "گەڕان و لێدانی یوتیوب بۆ «$query» ئەنجامدرا 🎵📱"
                     }
@@ -113,23 +172,33 @@ class SafaAccessibilityService : AccessibilityService() {
 
                     "TAP" -> {
                         val parts = target.split(" ", ",")
-                        if (parts.size >= 2) {
-                            val x = parts[0].toFloatOrNull() ?: 500f
-                            val y = parts[1].toFloatOrNull() ?: 500f
-                            success = tapAt(x, y)
-                            feedback = "کلیک کرا لە خاڵی ($x, $y)"
-                        } else {
-                            val x = target.toFloatOrNull() ?: 500f
-                            val y = message.toFloatOrNull() ?: 500f
-                            success = tapAt(x, y)
-                            feedback = "کلیک کرا لە خاڵی ($x, $y)"
-                        }
+                        val x = if (parts.size >= 2) (parts[0].toFloatOrNull() ?: 500f) else (target.toFloatOrNull() ?: 500f)
+                        val y = if (parts.size >= 2) (parts[1].toFloatOrNull() ?: 500f) else (message.toFloatOrNull() ?: 500f)
+                        success = tapAt(x, y)
+                        feedback = "کلیک کرا لە خاڵی ($x, $y)"
                     }
 
                     "TYPE" -> {
                         val textToType = if (message.isNotBlank()) message else target
                         success = setTextInFocusedNode(textToType)
                         feedback = "دەقی «$textToType» بە سەرکەوتوویی نووسرا ⌨️"
+                    }
+
+                    "SWIPE", "SCROLL" -> {
+                        val dir = (if (target.isNotBlank()) target else message).lowercase()
+                        success = if (dir.contains("up") || dir.contains("خوار")) {
+                            swipe(500f, 1500f, 500f, 400f)
+                        } else {
+                            swipe(500f, 400f, 500f, 1500f)
+                        }
+                        feedback = "شاشەکە بە سەرکەوتوویی جوڵێنرا ($dir) 📜"
+                    }
+
+                    "SCREEN_READ" -> {
+                        val root = rootInActiveWindow
+                        val dump = dumpNodeTree(root)
+                        success = dump.isNotBlank()
+                        feedback = if (success) dump else "شاشەکە بەتاڵە یان لەسەر پەڕەی سەرەکییە"
                     }
 
                     "HOME" -> {
@@ -152,15 +221,24 @@ class SafaAccessibilityService : AccessibilityService() {
                         feedback = "شاشەی ئاگادارییەکان داگیرا 🔔"
                     }
 
+                    "LOCK" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            success = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+                            feedback = "شاشەی مۆبایل قفڵ کرا 🔒"
+                        } else {
+                            success = false
+                            feedback = "قفڵکردنی شاشە پێویستی بە Android 9+ هەیە"
+                        }
+                    }
+
                     "SHELL" -> {
-                        // OpenRing fallback for direct intent
                         if (message.contains("youtube", ignoreCase = true)) {
                             val q = extractQuery(message)
                             success = playYouTube(q)
-                            feedback = "یوتیوب بە فەرمانی شێڵ کرایەوە و گەڕان ئەنجامدرا: $q 🎵"
+                            feedback = "یوتیوب بە فەرمانی شێڵ کرایەوە: $q 🎵"
                         } else {
                             success = true
-                            feedback = "فەرمانی شێڵ لە لایەن خزمەتگوزاری سەفا ڕەچاو کرا"
+                            feedback = "فەرمانی شێڵ ڕەچاو کرا"
                         }
                     }
 
@@ -170,11 +248,69 @@ class SafaAccessibilityService : AccessibilityService() {
                     }
                 }
 
-                reportResult(cmdId, success, feedback)
+                reportResult(cmdId, success, feedback, serverUsed)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error handling response: ${e.message}")
         }
+    }
+
+    private fun openUniversalGallery(): Boolean {
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                type = "image/*"
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            startActivity(intent)
+            true
+        } catch (e: Exception) {
+            launchAppByFallback(listOf("com.sec.android.gallery3d", "com.google.android.apps.photos", "com.miui.gallery", "com.coloros.gallery3d"))
+        }
+    }
+
+    private fun openUniversalCamera(): Boolean {
+        return try {
+            val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            startActivity(intent)
+            true
+        } catch (e: Exception) {
+            launchAppByFallback(listOf("com.sec.android.app.camera", "com.google.android.GoogleCamera", "com.android.camera"))
+        }
+    }
+
+    private fun openUniversalCalculator(): Boolean {
+        return try {
+            val intent = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_APP_CALCULATOR)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            startActivity(intent)
+            true
+        } catch (e: Exception) {
+            launchAppByFallback(listOf("com.sec.android.app.popupcalculator", "com.google.android.calculator", "com.miui.calculator"))
+        }
+    }
+
+    private fun openUniversalBrowser(url: String): Boolean {
+        return try {
+            val targetUrl = if (url.startsWith("http")) url else "https://$url"
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            startActivity(intent)
+            true
+        } catch (e: Exception) {
+            launchApp("com.android.chrome")
+        }
+    }
+
+    private fun launchAppByFallback(packages: List<String>): Boolean {
+        for (pkg in packages) {
+            if (launchApp(pkg)) return true
+        }
+        return false
     }
 
     private fun launchApp(packageName: String): Boolean {
@@ -216,7 +352,6 @@ class SafaAccessibilityService : AccessibilityService() {
 
     private fun clickFirstVideoResult() {
         val root = rootInActiveWindow ?: return
-        // Try finding video title nodes or cards and click
         findAndClickFirstClickable(root)
     }
 
@@ -272,19 +407,57 @@ class SafaAccessibilityService : AccessibilityService() {
         return dispatchGesture(gesture, null, null)
     }
 
+    private fun swipe(startX: Float, startY: Float, endX: Float, endY: Float): Boolean {
+        val path = Path().apply {
+            moveTo(startX, startY)
+            lineTo(endX, endY)
+        }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 300))
+            .build()
+        return dispatchGesture(gesture, null, null)
+    }
+
+    private fun dumpNodeTree(node: AccessibilityNodeInfo?): String {
+        if (node == null) return ""
+        val sb = StringBuilder()
+        fun traverse(n: AccessibilityNodeInfo) {
+            val text = n.text?.toString() ?: n.contentDescription?.toString()
+            if (!text.isNullOrBlank()) {
+                sb.append(text.trim()).append(" | ")
+            }
+            for (i in 0 until n.childCount) {
+                val child = n.getChild(i) ?: continue
+                traverse(child)
+            }
+        }
+        traverse(node)
+        return sb.toString()
+    }
+
     private fun resolvePackageName(name: String): String {
         val lower = name.lowercase().trim()
-        return when {
-            lower.contains("youtube") || lower.contains("یوتیوب") -> "com.google.android.youtube"
-            lower.contains("whatsapp") || lower.contains("واتس") -> "com.whatsapp"
-            lower.contains("telegram") || lower.contains("تلی") -> "org.telegram.messenger"
-            lower.contains("chrome") || lower.contains("کرۆم") -> "com.android.chrome"
-            lower.contains("fib") || lower.contains("فایب") -> "com.fib.mobile"
-            lower.contains("fastpay") || lower.contains("فاست") -> "com.fastpay.cash"
-            lower.contains("camera") || lower.contains("کامێرا") -> "com.sec.android.app.camera"
-            lower.contains("settings") || lower.contains("ڕێکخستن") -> "com.android.settings"
-            else -> name
+        when {
+            lower.contains("whatsapp") || lower.contains("واتس") -> return "com.whatsapp"
+            lower.contains("telegram") || lower.contains("تلی") -> return "org.telegram.messenger"
+            lower.contains("fib") || lower.contains("فایب") -> return "com.fib.mobile"
+            lower.contains("fastpay") || lower.contains("فاست") -> return "com.fastpay.cash"
+            lower.contains("tiktok") || lower.contains("تیکتۆک") -> return "com.zhiliaoapp.musically"
+            lower.contains("instagram") || lower.contains("ئینستا") -> return "com.instagram.android"
+            lower.contains("settings") || lower.contains("ڕێکخستن") -> return "com.android.settings"
         }
+
+        // Fuzzy Match on Installed Applications
+        try {
+            val apps = packageManager.getInstalledApplications(0)
+            val match = apps.find {
+                it.packageName.lowercase().contains(lower) ||
+                packageManager.getApplicationLabel(it).toString().lowercase().contains(lower)
+            }
+            if (match != null) return match.packageName
+        } catch (_: Exception) {}
+
+        return name
     }
 
     private fun extractQuery(shellMsg: String): String {
@@ -301,7 +474,7 @@ class SafaAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun reportResult(cmdId: String, success: Boolean, message: String) {
+    private fun reportResult(cmdId: String, success: Boolean, message: String, serverUsed: String) {
         serviceScope.launch {
             try {
                 val b64 = Base64.encodeToString(message.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
@@ -316,7 +489,7 @@ class SafaAccessibilityService : AccessibilityService() {
 
                 val body = jsonPayload.toString().toRequestBody("application/json".toMediaType())
                 val request = Request.Builder()
-                    .url("$serverUrl/api/mobile/result")
+                    .url("$serverUsed/api/mobile/result")
                     .post(body)
                     .build()
 
